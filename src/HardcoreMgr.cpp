@@ -1269,44 +1269,64 @@ void HardcoreMgr::OnItemLooted(Loot* loot, Item* item, Player* player)
     }
 }
 
+bool IsMaxLevel(Player* player)
+{
+    return player && player->GetLevel() >= 60 + (10 * EXPANSION);
+}
+
+bool IsInBG(Player* player)
+{
+#if EXPANSION >= 1
+    return player && (player->InBattleGround() || player->InArena());
+#else
+    return player->InBattleGround();
+#endif
+}
+
+bool IsInDungeon(Player* player)
+{
+    if (player && player->IsInWorld() && !player->IsBeingTeleported())
+    {
+        if (const Map* map = player->GetMap())
+        {
+            return map->IsDungeon() || map->IsRaid();
+        }
+    }
+
+    return false;
+}
+
+bool IsFairKill(Player* player, Unit* killer)
+{
+    if (killer && killer->IsPlayer())
+    {
+        const uint32 killerLevel = killer->GetLevel();
+        const uint32 playerLevel = player->GetLevel();
+        return killerLevel <= playerLevel + 3;
+    }
+
+    return false;
+}
+
 bool HardcoreMgr::ShouldDropLoot(Player* player /*= nullptr*/, Unit* killer /*= nullptr*/)
 {
     if (sHardcoreConfig.enabled)
     {
-        bool fairKill = true;
-        bool dropLoot = true;
-        bool inBG = false;
         if (player)
         {
-            inBG = player->InBattleGround() || player->InArena();
-
-            // Check if the player killer is around the same level as the player
-            const bool killedByPlayer = killer && killer->IsPlayer();
-            if (killedByPlayer)
-            {
-                const uint32 killerLevel = killer->GetLevel();
-                const uint32 playerLevel = player->GetLevel();
-                fairKill = killerLevel <= playerLevel + 3;
-            }
-
-            // Check if the bot has been killed by a player
 #ifdef ENABLE_MANGOSBOTS
+            // Check if the bot has been killed by another bot
             if (!player->isRealPlayer())
-#endif
             {
-                dropLoot = false;
-                if (killedByPlayer)
+                if (killer && killer->IsPlayer() && !((Player*)killer)->isRealPlayer())
                 {
-#ifdef ENABLE_MANGOSBOTS
-                    dropLoot = ((Player*)killer)->isRealPlayer();
-#else
-                    dropLoot = true;
-#endif
+                    return false;
                 }
             }
-        }
+#endif
 
-        return dropLoot && fairKill && !inBG && (ShouldDropGear(player) || ShouldDropItems(player) || ShouldDropMoney(player));
+            return IsFairKill(player, killer) && !IsInBG(player) && (ShouldDropGear(player) || ShouldDropItems(player) || ShouldDropMoney(player));
+        }
     }
 
     return false;
@@ -1316,15 +1336,7 @@ bool HardcoreMgr::ShouldDropMoney(Player* player /*= nullptr*/)
 {
     if (sHardcoreConfig.enabled)
     {
-        bool inBG = false;
-        bool isMaxLevel = false;
-        if (player)
-        {
-            isMaxLevel = player->GetLevel() >= 60;
-            inBG = player->InBattleGround() || player->InArena();
-        }
-
-        if (!inBG && !isMaxLevel)
+        if (!IsInBG(player) && !IsMaxLevel(player))
         {
             return GetDropMoneyRate(player);
         }
@@ -1337,15 +1349,7 @@ bool HardcoreMgr::ShouldDropItems(Player* player /*= nullptr*/)
 {
     if (sHardcoreConfig.enabled)
     {
-        bool inBG = false;
-        bool isMaxLevel = false;
-        if (player)
-        {
-            isMaxLevel = player->GetLevel() >= 60;
-            inBG = player->InBattleGround() || player->InArena();
-        }
-
-        if (!inBG && !isMaxLevel)
+        if (!IsInBG(player) && !IsMaxLevel(player))
         {
             return GetDropItemsRate(player);
         }
@@ -1358,17 +1362,12 @@ bool HardcoreMgr::ShouldDropGear(Player* player /*= nullptr*/)
 {
     if (sHardcoreConfig.enabled)
     {
-        bool inBG = false;
-        bool isMaxLevel = false;
         if (player)
         {
-            isMaxLevel = player->GetLevel() >= 60;
-            inBG = player->InBattleGround() || player->InArena();
-        }
-
-        if(!inBG && !isMaxLevel)
-        {
-            return GetDropGearRate(player);
+            if (!IsInBG(player) && !IsMaxLevel(player))
+            {
+                return GetDropGearRate(player);
+            }
         }
     }
 
@@ -1382,15 +1381,12 @@ bool HardcoreMgr::CanRevive(Player* player /*= nullptr*/)
         if (player && sHardcoreConfig.reviveDisabled)
         {
 #ifdef ENABLE_MANGOSBOTS
+            // Bots always should revive
             if (!player->isRealPlayer())
                 return true;
 #endif
 
-#if EXPANSION >= 1
-            return player->InBattleGround() || player->InArena();
-#else
-            return player->InBattleGround();
-#endif
+            return IsInBG(player);
         }
     }
 
@@ -1404,21 +1400,12 @@ bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player /*= nullptr*/)
         if (player && CanRevive(player) && sHardcoreConfig.reviveOnGraveyard)
         {
 #ifdef ENABLE_MANGOSBOTS
+            // Bots always should revive using ghosts
             if (!player->isRealPlayer())
                 return false;
 #endif
 
-            bool inDungeon = false;
-            if (player->IsInWorld() && !player->IsBeingTeleported())
-            {
-                if (const Map* map = player->GetMap())
-                {
-                    inDungeon = map->IsDungeon() || map->IsRaid();
-                }
-            }
-
-            const bool inBG = player->InBattleGround() || player->InArena();
-            return !inBG && !inDungeon;
+            return !IsInBG(player) && !IsInDungeon(player);
         }
     }
 
@@ -1432,21 +1419,12 @@ bool HardcoreMgr::ShouldLevelDown(Player* player /*= nullptr*/, Unit* killer /*=
         if (player && sHardcoreConfig.levelDownPct > 0.0f)
         {
 #ifdef ENABLE_MANGOSBOTS
+            // Bots should never level down
             if (!player->isRealPlayer())
                 return false;
 #endif
 
-            bool fairKill = true;
-            if (killer && killer->IsPlayer())
-            {
-                const uint32 killerLevel = killer->GetLevel();
-                const uint32 playerLevel = player->GetLevel();
-                fairKill = killerLevel <= playerLevel + 3;
-            }
-
-            const bool inBG = player->InBattleGround() || player->InArena();
-            const bool isMaxLevel = player->GetLevel() >= 60;
-            return !inBG && !isMaxLevel && fairKill;
+            return !IsInBG(player) && !IsMaxLevel(player) && IsFairKill(player, killer);
         }
     }
 
@@ -1496,21 +1474,12 @@ bool HardcoreMgr::ShouldSpawnGrave(Player* player /*= nullptr*/, Unit* killer /*
         if (player && sHardcoreConfig.spawnGrave)
         {
 #ifdef ENABLE_MANGOSBOTS
+            // Bots should never spawn a grave
             if (!player->isRealPlayer())
                 return false;
 #endif
 
-            bool fairKill = true;
-            if (killer && killer->IsPlayer())
-            {
-                const uint32 killerLevel = killer->GetLevel();
-                const uint32 playerLevel = player->GetLevel();
-                fairKill = killerLevel <= playerLevel + 3;
-            }
-
-            const bool inBG = player->InBattleGround() || player->InArena();
-            const bool isMaxLevel = player->GetLevel() >= 60;
-            return !inBG && !isMaxLevel && fairKill;
+            return !IsInBG(player) && !IsMaxLevel(player) && IsFairKill(player, killer);
         }
     }
 
@@ -1641,7 +1610,7 @@ void HardcoreMgr::LevelDown(Player* player, Unit* killer)
         totalLevelXP = totalLevelXP ? totalLevelXP : 1;
         const float levelPct = (float)(curXP) / totalLevelXP;
         const float level = player->GetLevel() + levelPct;
-        const double levelDown = level - levelDownRate;
+        const float levelDown = level - levelDownRate;
 
         // Separate the amount of levels and the XP (%)
         double newLevel, newXPpct;
