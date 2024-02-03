@@ -1,42 +1,60 @@
-#include "AchievementsConfig.h"
+#include "HardcoreConfig.h"
 
 #include "Log.h"
 #include "SystemConfig.h"
 
-AchievementsConfig::AchievementsConfig()
+HardcoreConfig::HardcoreConfig()
 : enabled(false)
-, sendMessage(false)
-, sendAddon(false)
-, sendVisual(false)
-, randomBots(false)
-, randomBotsRealmFirst(false)
-, accountAchievements(false)
-, effectId(0)
+, spawnGrave(false)
+, graveGameObjectId(0U)
+, graveMessage("")
+, dropGearPct(0.0f)
+, dropItemsPct(0.0f)
+, dropMoneyPct(0.0f)
+#ifdef ENABLE_MANGOSBOTS
+, botDropGearPct(0.0f)
+, botDropItemsPct(0.0f)
+, botDropMoneyPct(0.0f)
+#endif
+, lootGameObjectId(0U)
+, reviveDisabled(false)
+, reviveOnGraveyard(false)
+, levelDownPct(0.0f)
+, maxDroppedLoot(0U)
 {
 
 }
 
-INSTANTIATE_SINGLETON_1(AchievementsConfig);
+INSTANTIATE_SINGLETON_1(HardcoreConfig);
 
-bool AchievementsConfig::Initialize()
+bool HardcoreConfig::Initialize()
 {
-    sLog.outString("Initializing Achievements by Tsaah");
+    sLog.outString("Initializing Hardcore by Flekz");
 
-    if (!config.SetSource(SYSCONFDIR"achievements.conf"))
+    if (!config.SetSource(SYSCONFDIR"hardcore.conf"))
     {
-        sLog.outError("Failed to open configuration file achievements.conf");
+        sLog.outError("Failed to open configuration file hardcore.conf");
         return false;
     }
 
-    enabled = config.GetBoolDefault("Achievements.Enable", false);
-    sendMessage = config.GetBoolDefault("Achievements.SendMessage", false);
-    sendAddon = config.GetBoolDefault("Achievements.SendAddon", false);
-    sendVisual = config.GetBoolDefault("Achievements.SendVisual", false);
-    randomBots = config.GetBoolDefault("Achievements.RandomBots", false);
-    randomBotsRealmFirst = config.GetBoolDefault("Achievements.RandomBotsRealmFirst", false);
-    accountAchievements = config.GetBoolDefault("Achievements.AccountAchievenemts", false);
-    effectId = config.GetIntDefault("Achievements.EffectId", 0);
+    enabled = config.GetBoolDefault("Hardcore.Enable", false);
+    spawnGrave = config.GetBoolDefault("Hardcore.SpawnGrave", false);
+    graveGameObjectId = config.GetIntDefault("Hardcore.GraveGameObjectID", 0U);
+    graveMessage = config.GetStringDefault("Hardcore.GraveMessage", "");
+    dropGearPct = config.GetFloatDefault("Hardcore.DropGear", 0.0f);
+    dropItemsPct = config.GetFloatDefault("Hardcore.DropItems", 0.0f);
+    dropMoneyPct = config.GetFloatDefault("Hardcore.DropMoney", 0.0f);
+#ifdef ENABLE_MANGOSBOTS
+    botDropGearPct = config.GetFloatDefault("Hardcore.BotDropGear", 0.0f);
+    botDropItemsPct = config.GetFloatDefault("Hardcore.BotDropItems", 0.0f);
+    botDropMoneyPct = config.GetFloatDefault("Hardcore.BotDropMoney", 0.0f);
+#endif
+    lootGameObjectId = config.GetIntDefault("Hardcore.LootGameObjectID", 0U);
+    reviveDisabled = config.GetBoolDefault("Hardcore.ReviveDisabled", false);
+    reviveOnGraveyard = config.GetBoolDefault("Hardcore.ReviveOnGraveyard", false);
+    levelDownPct = config.GetFloatDefault("Hardcore.LevelDown", 0.0f);
+    maxDroppedLoot = config.GetIntDefault("Hardcore.MaxPlayerLoot", 0U);
 
-    sLog.outString("Achievements configuration loaded");
+    sLog.outString("Hardcore configuration loaded");
     return true;
 }

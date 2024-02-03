@@ -1,9 +1,12 @@
 #include "HardcoreMgr.h"
+#include "HardcoreConfig.h"
+
 #include "Entities/Player.h"
-#include "World/World.h"
-#include "ObjectMgr.h"
-#include "Config.h"
+#include "Globals/ObjectMgr.h"
+#include "Globals/ObjectAccessor.h"
+#include "Spells/SpellMgr.h"
 #include "SystemConfig.h"
+#include "World/World.h"
 
 HardcoreLootItem::HardcoreLootItem(uint32 id, uint8 amount)
 : m_id(id)
@@ -161,7 +164,7 @@ void HardcoreLootGameObject::Spawn()
 {
     if (!IsSpawned())
     {
-        const static uint32 lootGOEntry = sWorld.getConfig(CONFIG_UINT32_HARDCORE_LOOT_GAMEOBJECT_ID);
+        const static uint32 lootGOEntry = sHardcoreConfig.lootGameObjectId;
         const uint32 goLowGUID = sObjectMgr.GenerateStaticGameObjectLowGuid();
         if (goLowGUID)
         {
@@ -452,7 +455,9 @@ bool HardcorePlayerLoot::Create()
                     items.erase(items.begin() + randIdx);
 
                     // Remove the item from the player (except for bots)
+#ifdef ENABLE_MANGOSBOTS
                     if (player->isRealPlayer())
+#endif
                     {
                         for (const ItemSlot& slot : item.m_slots)
                         {
@@ -530,7 +535,9 @@ bool HardcorePlayerLoot::Create()
                 dropMoney = playerMoney * moneyDropRate;
 
                 // Remove the money from the player (except for bots)
+#ifdef ENABLE_MANGOSBOTS
                 if (player->isRealPlayer())
+#endif
                 {
                     player->SetMoney(playerMoney - dropMoney);
                 }
@@ -657,7 +664,7 @@ void HardcoreGraveGameObject::Spawn()
         const GameObjectInfo* goInfo = sObjectMgr.GetGameObjectInfo(m_gameObjectEntry);
         if (!goInfo)
         {
-            gameObjectEntry = sWorld.getConfig(CONFIG_UINT32_HARDCORE_GRAVE_GAMEOBJECT_ID);
+            gameObjectEntry = sHardcoreConfig.graveGameObjectId;
         }
 
         const uint32 goLowGUID = sObjectMgr.GenerateStaticGameObjectLowGuid();
@@ -807,7 +814,7 @@ HardcorePlayerGrave HardcorePlayerGrave::Generate(uint32 playerId, const std::st
         // Get gameobject info from existing gameobject from config
         float size = 1.29f;
         uint32 displayId = 12;
-        const GameObjectInfo* goInfo = ObjectMgr::GetGameObjectInfo(sWorld.getConfig(CONFIG_UINT32_HARDCORE_GRAVE_GAMEOBJECT_ID));
+        const GameObjectInfo* goInfo = ObjectMgr::GetGameObjectInfo(sHardcoreConfig.graveGameObjectId);
         if (goInfo)
         {
             displayId = goInfo->displayId;
@@ -950,7 +957,7 @@ void HardcoreMgr::OnPlayerRevived(Player* player)
 
 void HardcoreMgr::OnPlayerDeath(Player* player, Unit* killer)
 {
-    if (sWorld.getConfig(CONFIG_BOOL_HARDCORE_ENABLED))
+    if (sHardcoreConfig.enabled)
     {
         // Check if the killer is a pet and if so get the owner
         if (killer && killer->IsCreature() && killer->GetOwner())
@@ -1256,7 +1263,7 @@ void HardcoreMgr::OnItemLooted(Loot* loot, Item* item, Player* player)
 
 bool HardcoreMgr::ShouldDropLoot(Player* player /*= nullptr*/, Unit* killer /*= nullptr*/)
 {
-    if (sWorld.getConfig(CONFIG_BOOL_HARDCORE_ENABLED))
+    if (sHardcoreConfig.enabled)
     {
         bool fairKill = true;
         bool dropLoot = true;
@@ -1275,12 +1282,18 @@ bool HardcoreMgr::ShouldDropLoot(Player* player /*= nullptr*/, Unit* killer /*= 
             }
 
             // Check if the bot has been killed by a player
+#ifdef ENABLE_MANGOSBOTS
             if (!player->isRealPlayer())
+#endif
             {
                 dropLoot = false;
                 if (killedByPlayer)
                 {
+#ifdef ENABLE_MANGOSBOTS
                     dropLoot = ((Player*)killer)->isRealPlayer();
+#else
+                    dropLoot = true;
+#endif
                 }
             }
         }
@@ -1293,7 +1306,7 @@ bool HardcoreMgr::ShouldDropLoot(Player* player /*= nullptr*/, Unit* killer /*= 
 
 bool HardcoreMgr::ShouldDropMoney(Player* player /*= nullptr*/)
 {
-    if (sWorld.getConfig(CONFIG_BOOL_HARDCORE_ENABLED))
+    if (sHardcoreConfig.enabled)
     {
         bool inBG = false;
         bool isMaxLevel = false;
@@ -1314,7 +1327,7 @@ bool HardcoreMgr::ShouldDropMoney(Player* player /*= nullptr*/)
 
 bool HardcoreMgr::ShouldDropItems(Player* player /*= nullptr*/)
 {
-    if (sWorld.getConfig(CONFIG_BOOL_HARDCORE_ENABLED))
+    if (sHardcoreConfig.enabled)
     {
         bool inBG = false;
         bool isMaxLevel = false;
@@ -1335,7 +1348,7 @@ bool HardcoreMgr::ShouldDropItems(Player* player /*= nullptr*/)
 
 bool HardcoreMgr::ShouldDropGear(Player* player /*= nullptr*/)
 {
-    if (sWorld.getConfig(CONFIG_BOOL_HARDCORE_ENABLED))
+    if (sHardcoreConfig.enabled)
     {
         bool inBG = false;
         bool isMaxLevel = false;
@@ -1356,13 +1369,20 @@ bool HardcoreMgr::ShouldDropGear(Player* player /*= nullptr*/)
 
 bool HardcoreMgr::CanRevive(Player* player /*= nullptr*/)
 {
-    if (sWorld.getConfig(CONFIG_BOOL_HARDCORE_ENABLED))
+    if (sHardcoreConfig.enabled)
     {
-        if (player && sWorld.getConfig(CONFIG_BOOL_HARDCORE_REVIVE_DISABLED))
+        if (player && sHardcoreConfig.reviveDisabled)
         {
-            const bool isBot = !player->isRealPlayer();
-            const bool inBG = player->InBattleGround() || player->InArena();
-            return isBot || inBG;
+#ifdef ENABLE_MANGOSBOTS
+            if (!player->isRealPlayer())
+                return true;
+#endif
+
+#if EXPANSION >= 1
+            return player->InBattleGround() || player->InArena();
+#else
+            return player->InBattleGround();
+#endif
         }
     }
 
@@ -1371,10 +1391,15 @@ bool HardcoreMgr::CanRevive(Player* player /*= nullptr*/)
 
 bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player /*= nullptr*/)
 {
-    if (sWorld.getConfig(CONFIG_BOOL_HARDCORE_ENABLED))
+    if (sHardcoreConfig.enabled)
     {
-        if (player && CanRevive(player) && sWorld.getConfig(CONFIG_BOOL_HARDCORE_REVIVE_ON_GRAVEYARD))
+        if (player && CanRevive(player) && sHardcoreConfig.reviveOnGraveyard)
         {
+#ifdef ENABLE_MANGOSBOTS
+            if (!player->isRealPlayer())
+                return false;
+#endif
+
             bool inDungeon = false;
             if (player->IsInWorld() && !player->IsBeingTeleported())
             {
@@ -1384,9 +1409,8 @@ bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player /*= nullptr*/)
                 }
             }
 
-            const bool isBot = !player->isRealPlayer();
             const bool inBG = player->InBattleGround() || player->InArena();
-            return !isBot && !inBG && !inDungeon;
+            return !inBG && !inDungeon;
         }
     }
 
@@ -1395,10 +1419,15 @@ bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player /*= nullptr*/)
 
 bool HardcoreMgr::ShouldLevelDown(Player* player /*= nullptr*/, Unit* killer /*= nullptr*/)
 {
-    if (sWorld.getConfig(CONFIG_BOOL_HARDCORE_ENABLED))
+    if (sHardcoreConfig.enabled)
     {
-        if (player && sWorld.getConfig(CONFIG_FLOAT_HARDCORE_LEVEL_DOWN) > 0.0f)
+        if (player && sHardcoreConfig.levelDownPct > 0.0f)
         {
+#ifdef ENABLE_MANGOSBOTS
+            if (!player->isRealPlayer())
+                return false;
+#endif
+
             bool fairKill = true;
             if (killer && killer->IsPlayer())
             {
@@ -1407,10 +1436,9 @@ bool HardcoreMgr::ShouldLevelDown(Player* player /*= nullptr*/, Unit* killer /*=
                 fairKill = killerLevel <= playerLevel + 3;
             }
 
-            const bool isBot = !player->isRealPlayer();
             const bool inBG = player->InBattleGround() || player->InArena();
             const bool isMaxLevel = player->GetLevel() >= 60;
-            return !isBot && !inBG && !isMaxLevel && fairKill;
+            return !inBG && !isMaxLevel && fairKill;
         }
     }
 
@@ -1419,34 +1447,51 @@ bool HardcoreMgr::ShouldLevelDown(Player* player /*= nullptr*/, Unit* killer /*=
 
 uint32 HardcoreMgr::GetMaxPlayerLoot(Player* player /*= nullptr*/) const
 {
-    const uint32 maxPlayerLoot = sWorld.getConfig(CONFIG_UINT32_HARDCORE_MAX_PLAYER_LOOT);
+    const uint32 maxPlayerLoot = sHardcoreConfig.maxDroppedLoot;
     return maxPlayerLoot > 0 ? maxPlayerLoot : 1;
 }
 
 float HardcoreMgr::GetDropMoneyRate(Player* player /*= nullptr*/) const
 {
+#ifdef ENABLE_MANGOSBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
-    return isBot ? sWorld.getConfig(CONFIG_FLOAT_HARDCORE_BOT_DROP_MONEY) : sWorld.getConfig(CONFIG_FLOAT_HARDCORE_DROP_MONEY);
+    return isBot ? sHardcoreConfig.botDropMoneyPct : sHardcoreConfig.dropMoneyPct;
+#else
+    return sHardcoreConfig.dropMoneyPct;
+#endif
 }
 
 float HardcoreMgr::GetDropItemsRate(Player* player /*= nullptr*/) const
 {
+#ifdef ENABLE_MANGOSBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
-    return isBot ? sWorld.getConfig(CONFIG_FLOAT_HARDCORE_BOT_DROP_ITEMS) : sWorld.getConfig(CONFIG_FLOAT_HARDCORE_DROP_ITEMS);
+    return isBot ? sHardcoreConfig.botDropItemsPct : sHardcoreConfig.dropItemsPct;
+#else
+    return sHardcoreConfig.dropItemsPct;
+#endif
 }
 
 float HardcoreMgr::GetDropGearRate(Player* player /*= nullptr*/) const
 {
+#ifdef ENABLE_MANGOSBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
-    return isBot ? sWorld.getConfig(CONFIG_FLOAT_HARDCORE_BOT_DROP_GEAR) : sWorld.getConfig(CONFIG_FLOAT_HARDCORE_DROP_GEAR);
+    return isBot ? sHardcoreConfig.botDropGearPct : sHardcoreConfig.dropGearPct;
+#else
+    return sHardcoreConfig.dropGearPct;
+#endif
 }
 
 bool HardcoreMgr::ShouldSpawnGrave(Player* player /*= nullptr*/, Unit* killer /*= nullptr*/)
 {
-    if (sWorld.getConfig(CONFIG_BOOL_HARDCORE_ENABLED))
+    if (sHardcoreConfig.enabled)
     {
-        if (player && sWorld.getConfig(CONFIG_BOOL_HARDCORE_SPAWN_GRAVE))
+        if (player && sHardcoreConfig.spawnGrave)
         {
+#ifdef ENABLE_MANGOSBOTS
+            if (!player->isRealPlayer())
+                return false;
+#endif
+
             bool fairKill = true;
             if (killer && killer->IsPlayer())
             {
@@ -1455,10 +1500,9 @@ bool HardcoreMgr::ShouldSpawnGrave(Player* player /*= nullptr*/, Unit* killer /*
                 fairKill = killerLevel <= playerLevel + 3;
             }
 
-            const bool isBot = !player->isRealPlayer();
             const bool inBG = player->InBattleGround() || player->InArena();
             const bool isMaxLevel = player->GetLevel() >= 60;
-            return !isBot && !inBG && !isMaxLevel && fairKill;
+            return !inBG && !isMaxLevel && fairKill;
         }
     }
 
@@ -1489,11 +1533,15 @@ void HardcoreMgr::PreLoadGraves()
         }
 
         // Check for missing gravestones for characters
+#ifdef ENABLE_MANGOSBOTS
         Config config;
         if (config.SetSource(SYSCONFDIR"aiplayerbot.conf"))
+#endif
         {
+#ifdef ENABLE_MANGOSBOTS
             std::string botPrefix = config.GetStringDefault("AiPlayerbot.RandomBotAccountPrefix", "rndbot");
             std::transform(botPrefix.begin(), botPrefix.end(), botPrefix.begin(), ::toupper);
+#endif
             auto result2 = CharacterDatabase.Query("SELECT guid, account, name FROM characters");
             if (result2)
             {
@@ -1507,6 +1555,7 @@ void HardcoreMgr::PreLoadGraves()
                     // Check if the player grave exists
                     if (m_playerGraves.find(playerId) == m_playerGraves.end())
                     {
+#ifdef ENABLE_MANGOSBOTS
                         // Check if the player is not a bot
                         bool isBot = true;
                         auto result3 = LoginDatabase.PQuery("SELECT username FROM account WHERE id = '%d'", playerAccountId);
@@ -1518,6 +1567,7 @@ void HardcoreMgr::PreLoadGraves()
                         }
 
                         if (!isBot)
+#endif
                         {
                             // Create a new player grave
                             m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName)));
@@ -1577,7 +1627,7 @@ void HardcoreMgr::LevelDown(Player* player, Unit* killer)
     if (player && ShouldLevelDown(player, killer))
     {
         // Calculate how many levels and XP (%) we have to remove
-        const float levelDownRate = sWorld.getConfig(CONFIG_FLOAT_HARDCORE_LEVEL_DOWN);
+        const float levelDownRate = sHardcoreConfig.levelDownPct;
         uint32 totalLevelXP = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
         uint32 curXP = player->GetUInt32Value(PLAYER_XP);
         totalLevelXP = totalLevelXP ? totalLevelXP : 1;

@@ -1,7 +1,18 @@
 #ifndef MANGOS_HARDCOREMGR_H
 #define MANGOS_HARDCOREMGR_H
 
+#include "Entities/ObjectGuid.h"
+#include "Platform/Define.h"
+
+#include <utility>
+#include <vector>
+#include <string>
+#include <map>
+
+class Item;
+class Loot;
 class Player;
+class Unit;
 
 // Bag, Slot
 typedef std::pair<uint8, uint8> ItemSlot;

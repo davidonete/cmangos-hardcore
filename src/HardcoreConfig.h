@@ -2,14 +2,14 @@
 
 #include "Config/Config.h"
 
-class AchievementsConfig
+class HardcoreConfig
 {
 public:
-    AchievementsConfig();
+    HardcoreConfig();
 
-    static AchievementsConfig& instance()
+    static HardcoreConfig& instance()
     {
-        static AchievementsConfig instance;
+        static HardcoreConfig instance;
         return instance;
     }
 
@@ -17,17 +17,26 @@ public:
 
 public:
     bool enabled;
-    bool sendMessage;
-    bool sendAddon;
-    bool sendVisual;
-    bool randomBots;
-    bool randomBotsRealmFirst;
-    bool accountAchievements;
-    uint32 effectId;
+    bool spawnGrave;
+    uint32 graveGameObjectId;
+    std::string graveMessage;
+    float dropGearPct;
+    float dropItemsPct;
+    float dropMoneyPct;
+#ifdef ENABLE_MANGOSBOTS
+    float botDropGearPct;
+    float botDropItemsPct;
+    float botDropMoneyPct;
+#endif
+    uint32 lootGameObjectId;
+    bool reviveDisabled;
+    bool reviveOnGraveyard;
+    float levelDownPct;
+    uint32 maxDroppedLoot;
 
 private:
     Config config;
 };
 
-#define sAchievementsConfig MaNGOS::Singleton<AchievementsConfig>::Instance()
+#define sHardcoreConfig MaNGOS::Singleton<HardcoreConfig>::Instance()
 
