@@ -40,7 +40,7 @@ bool HardcoreConfig::Initialize()
     enabled = config.GetBoolDefault("Hardcore.Enable", false);
     spawnGrave = config.GetBoolDefault("Hardcore.SpawnGrave", false);
     graveGameObjectId = config.GetIntDefault("Hardcore.GraveGameObjectID", 0U);
-    graveMessage = config.GetStringDefault("Hardcore.GraveMessage", "");
+    graveMessage = config.GetStringDefault("Hardcore.GraveMessage", "Here lies <PlayerName>");
     dropGearPct = config.GetFloatDefault("Hardcore.DropGear", 0.0f);
     dropItemsPct = config.GetFloatDefault("Hardcore.DropItems", 0.0f);
     dropMoneyPct = config.GetFloatDefault("Hardcore.DropMoney", 0.0f);

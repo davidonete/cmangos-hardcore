@@ -891,7 +891,7 @@ void HardcorePlayerGrave::Destroy()
 std::string HardcorePlayerGrave::GenerateGraveMessage(const std::string& playerName)
 {
     std::string gravestoneMessage;
-    std::string gravestoneMessages = sConfig.GetStringDefault("Hardcore.GraveMessage", "Here lies <PlayerName>");
+    std::string gravestoneMessages = sHardcoreConfig.graveMessage;
 
     // Check if we have multiple messages to select from
     char separator = '|';
@@ -933,14 +933,22 @@ std::string HardcorePlayerGrave::GenerateGraveMessage(const std::string& playerN
 
 void HardcoreMgr::PreLoad()
 {
-    PreLoadLoot();
-    PreLoadGraves();
+    sHardcoreConfig.Initialize();
+
+    if (sHardcoreConfig.enabled)
+    {
+        PreLoadLoot();
+        PreLoadGraves();
+    }
 }
 
 void HardcoreMgr::Load()
 {
-    LoadLoot();
-    LoadGraves();
+    if (sHardcoreConfig.enabled)
+    {
+        LoadLoot();
+        LoadGraves();
+    }
 }
 
 void HardcoreMgr::OnPlayerRevived(Player* player)
