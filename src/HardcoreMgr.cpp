@@ -1,6 +1,6 @@
-#include "Hardcore/HardcoreMgr.h"
+#include "HardcoreMgr.h"
 #include "Entities/Player.h"
-#include "World.h"
+#include "World/World.h"
 #include "ObjectMgr.h"
 #include "Config.h"
 #include "SystemConfig.h"
