@@ -1694,3 +1694,49 @@ bool HardcoreMgr::IsDropLootEnabled() const
            sHardcoreConfig.dropItemsPct > 0.0f || 
            sHardcoreConfig.dropMoneyPct > 0.0f;
 }
+
+bool ChatHandler::HandleHardcoreCommand(char* args)
+{
+    std::string command = args;
+    char* cmd = strtok((char*)args, " ");
+    char* charname = strtok(NULL, " ");
+    if (cmd)
+    {
+        if (!strcmp(cmd, "reset"))
+        {
+            sHardcoreMgr.RemoveAllLoot();
+            sHardcoreMgr.RemoveAllGraves();
+        }
+        else if (!strcmp(cmd, "resetgraves"))
+        {
+            sHardcoreMgr.RemoveAllGraves();
+        }
+        else if (!strcmp(cmd, "resetloot"))
+        {
+            sHardcoreMgr.RemoveAllLoot();
+        }
+        else if (!strcmp(cmd, "spawnloot"))
+        {
+            if (m_session && m_session->GetPlayer())
+            {
+                sHardcoreMgr.CreateLoot(m_session->GetPlayer(), nullptr);
+            }
+        }
+        else if (!strcmp(cmd, "spawngrave"))
+        {
+            if (m_session && m_session->GetPlayer())
+            {
+                sHardcoreMgr.CreateGrave(m_session->GetPlayer());
+            }
+        }
+        else if (!strcmp(cmd, "leveldown"))
+        {
+            if (m_session && m_session->GetPlayer())
+            {
+                sHardcoreMgr.LevelDown(m_session->GetPlayer());
+            }
+        }
+    }
+
+    return true;
+}
