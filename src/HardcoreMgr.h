@@ -14,6 +14,8 @@ class Loot;
 class Player;
 class Unit;
 
+struct LootItem;
+
 // Bag, Slot
 typedef std::pair<uint8, uint8> ItemSlot;
 
@@ -51,6 +53,7 @@ public:
     uint32 GetGUID() const { return m_guid; }
     uint32 GetPlayerId() const { return m_playerId; }
     uint32 GetLootId() const { return m_lootId; }
+    uint32 GetMoney() const { return m_money; }
     bool HasItems() const { return !m_items.empty(); }
     const std::vector<HardcoreLootItem>& GetItems() const { return m_items; }
     const HardcoreLootItem* GetItem(uint32 itemId) const;
@@ -146,6 +149,8 @@ private:
 
 class HardcoreMgr
 {
+    friend HardcorePlayerLoot;
+
 public:
     HardcoreMgr() {}
 
@@ -159,46 +164,51 @@ public:
     void OnPlayerRevived(Player* player);
     void OnPlayerDeath(Player* player, Unit* killer);
     void OnPlayerReleaseSpirit(Player* player, bool teleportedToGraveyard);
+    void OnPlayerStoreNewItem(Player* player, Loot* loot, Item* item);
 
-    void CreateLoot(Player* player, Unit* killer);
-    bool RemoveLoot(uint32 playerId, uint32 lootId);
+    // Loot hooks
+    bool OnLootFill(Loot* loot);
+    bool OnLootGenerateMoney(Loot* loot, uint32& outMoney);
+    void OnLootAddItem(Loot* loot, LootItem* lootItem);
+
+    // Command methods
     void RemoveAllLoot();
-    bool FillLoot(Loot& loot);
-    void OnItemLooted(Loot* loot, Item* item, Player* player);
-
-    void CreateGrave(Player* player, Unit* killer = nullptr);
     void RemoveAllGraves();
-
+    void CreateLoot(Player* player, Unit* killer);
+    void CreateGrave(Player* player, Unit* killer = nullptr);
     void LevelDown(Player* player, Unit* killer = nullptr);
 
-    bool ShouldDropLoot(Player* player = nullptr, Unit* killer = nullptr);
-    bool ShouldDropMoney(Player* player = nullptr);
-    bool ShouldDropItems(Player* player = nullptr);
-    bool ShouldDropGear(Player* player = nullptr);
-    bool ShouldSpawnGrave(Player* player = nullptr, Unit* killer = nullptr);
-    bool CanRevive(Player* player = nullptr);
-    bool ShouldReviveOnGraveyard(Player* player = nullptr);
-    bool ShouldLevelDown(Player* player = nullptr, Unit* killer = nullptr);
-
-    uint32 GetMaxPlayerLoot(Player* player = nullptr) const;
-    float GetDropMoneyRate(Player* player = nullptr) const;
-    float GetDropItemsRate(Player* player = nullptr) const;
-    float GetDropGearRate(Player* player = nullptr) const;
-
 private:
+    // Loot methods
     HardcoreLootGameObject* FindLootGOByGUID(const uint32 guid);
     HardcorePlayerLoot* FindLootByID(const uint32 playerId, const uint32 lootId);
+
     void PreLoadLoot();
     void LoadLoot();
+    bool RemoveLoot(uint32 playerId, uint32 lootId);
+    uint32 GetMaxPlayerLoot() const;
+    float GetDropMoneyRate(Player* player) const;
+    float GetDropItemsRate(Player* player) const;
+    float GetDropGearRate(Player* player) const;
+    bool ShouldDropLoot(Player* player, Unit* killer = nullptr);
+    bool ShouldDropMoney(Player* player);
+    bool ShouldDropItems(Player* player);
+    bool ShouldDropGear(Player* player);
+    bool IsDropLootEnabled() const;
 
+    // Grave methods
+    bool ShouldSpawnGrave(Player* player, Unit* killer = nullptr);
+    bool CanRevive(Player* player);
+    bool ShouldReviveOnGraveyard(Player* player);
     void GenerateMissingGraves();
     void PreLoadGraves();
     void LoadGraves();
 
+    // Level methods
+    bool ShouldLevelDown(Player* player, Unit* killer = nullptr);
+
     Unit* GetKiller(Player* player) const;
     void  SetKiller(Player* player, Unit* killer);
-
-    bool IsDropLootEnabled() const;
 
 private:
     std::map<uint32, std::map<uint32, HardcorePlayerLoot>> m_playersLoot;

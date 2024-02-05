@@ -187,16 +187,6 @@ void HardcoreLootGameObject::Spawn()
                     pGameObject->SaveToDB(map->GetId());
                     if (pGameObject->LoadFromDB(goLowGUID, map, goLowGUID, 0))
                     {
-                        // Assign loot table to the gameobject
-                        pGameObject->GetGOInfo()->chest.lootId = m_lootTableId;
-
-                        // Assign gold
-                        pGameObject->GetGOInfo()->MinMoneyLoot = m_money;
-                        pGameObject->GetGOInfo()->MaxMoneyLoot = m_money;
-
-                        // Set flag for hardcore loot
-                        pGameObject->SetIsHardcoreLoot(true);
-
                         // Set the initial state of the chest to be ready to be looted
                         pGameObject->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE);
                         pGameObject->SetGoState(GO_STATE_READY);
@@ -822,7 +812,7 @@ HardcorePlayerGrave HardcorePlayerGrave::Generate(uint32 playerId, const std::st
         }
 
         std::string graveMessage = GenerateGraveMessage(playerName);
-        WorldDatabase.PExecute("INSERT INTO gameobject_template (entry, type, displayId, name, size, data10, CustomData1) VALUES('%d', '%d', '%d', '%s', '%f', '%d', '%d')",
+        WorldDatabase.PExecute("INSERT INTO gameobject_template (entry, type, displayId, name, size, data10, CustomData1) VALUES ('%d', '%d', '%d', '%s', '%f', '%d', '%d')",
             newGameObjectEntry, 
             2, 
             displayId, 
@@ -973,11 +963,23 @@ void HardcoreMgr::OnPlayerCharacterCreated(Player* player)
 
 void HardcoreMgr::OnPlayerCharacterDeletedFromDB(uint32 playerId)
 {
-    // Check if the player grave exists
-    auto it = m_playerGraves.find(playerId);
-    if (it != m_playerGraves.end())
+    // Delete grave it
+    auto graveIt = m_playerGraves.find(playerId);
+    if (graveIt != m_playerGraves.end())
     {
-        it->second.Destroy();
+        graveIt->second.Destroy();
+        m_playerGraves.erase(graveIt);
+    }
+
+    auto playerLootIt = m_playersLoot.find(playerId);
+    if (playerLootIt != m_playersLoot.end())
+    {
+        for (auto lootIt = playerLootIt->second.begin(); lootIt != playerLootIt->second.end(); ++lootIt)
+        {
+            lootIt->second.Destroy();
+        }
+
+        m_playersLoot.erase(playerLootIt);
     }
 }
 
@@ -1188,7 +1190,7 @@ void HardcoreMgr::CreateLoot(Player* player, Unit* killer)
         if (playerLootsIt != m_playersLoot.end())
         {
             std::map<uint32, HardcorePlayerLoot>& playerLoots = playerLootsIt->second;
-            if (playerLoots.size() >= GetMaxPlayerLoot(player))
+            if (playerLoots.size() >= GetMaxPlayerLoot())
             {
                 // Get the oldest loot to remove
                 HardcorePlayerLoot& playerLoot = playerLoots.begin()->second;
@@ -1258,37 +1260,73 @@ void HardcoreMgr::RemoveAllLoot()
     m_playersLoot.clear();
 }
 
-bool HardcoreMgr::FillLoot(Loot& loot)
+bool HardcoreMgr::OnLootFill(Loot* loot)
 {
-    const GameObject* gameObject = (GameObject*)loot.GetLootTarget();
-    if (gameObject && gameObject->IsHardcoreLoot())
+    if (sHardcoreConfig.enabled && IsDropLootEnabled())
     {
-        const uint32 goGUID = gameObject->GetGUIDLow();
-        const HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(goGUID);
-        if (lootGameObject)
+        if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
         {
-            for (const HardcoreLootItem& item : lootGameObject->GetItems())
+            // Look for the items in the loot cache
+            const HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
+            if (lootGameObject)
             {
-                loot.AddItem(item.m_id, item.m_amount, 0, item.m_randomPropertyId, false);
-            }
+                for (const HardcoreLootItem& item : lootGameObject->GetItems())
+                {
+                    loot->AddItem(item.m_id, item.m_amount, 0, item.m_randomPropertyId);
+                }
 
-            return true;
+                return true;
+            }
         }
     }
 
     return false;
 }
 
-void HardcoreMgr::OnItemLooted(Loot* loot, Item* item, Player* player)
+bool HardcoreMgr::OnLootGenerateMoney(Loot* loot, uint32& outMoney)
 {
-    if (item && loot)
+    if (sHardcoreConfig.enabled && IsDropLootEnabled())
     {
-        const GameObject* gameObject = (GameObject*)loot->GetLootTarget();
-        if (gameObject && gameObject->IsHardcoreLoot())
+        if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
         {
             // Look for the items in the loot cache
-            const uint32 goGUID = gameObject->GetGUIDLow();
-            HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(goGUID);
+            HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
+            if (lootGameObject)
+            {
+                outMoney = lootGameObject->GetMoney();
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void HardcoreMgr::OnLootAddItem(Loot* loot, LootItem* lootItem)
+{
+    if (sHardcoreConfig.enabled && IsDropLootEnabled())
+    {
+        if (loot && lootItem && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
+        {
+            // Look for the items in the loot cache
+            HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
+            if (lootGameObject)
+            {
+                // Remove the allowed guids to allow anybody to loot this
+                lootItem->allowedGuid.clear();
+            }
+        }
+    }
+}
+
+void HardcoreMgr::OnPlayerStoreNewItem(Player* player, Loot* loot, Item* item)
+{
+    if (sHardcoreConfig.enabled && IsDropLootEnabled())
+    {
+        if (loot && item && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
+        {
+            // Look for the items in the loot cache
+            HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
             if (lootGameObject)
             {
                 const HardcoreLootItem* hardcoreItem = lootGameObject->GetItem(item->GetProto()->ItemId);
@@ -1377,7 +1415,7 @@ bool IsFairKill(Player* player, Unit* killer)
     return false;
 }
 
-bool HardcoreMgr::ShouldDropLoot(Player* player /*= nullptr*/, Unit* killer /*= nullptr*/)
+bool HardcoreMgr::ShouldDropLoot(Player* player, Unit* killer /*= nullptr*/)
 {
     if (sHardcoreConfig.enabled)
     {
@@ -1401,7 +1439,7 @@ bool HardcoreMgr::ShouldDropLoot(Player* player /*= nullptr*/, Unit* killer /*= 
     return false;
 }
 
-bool HardcoreMgr::ShouldDropMoney(Player* player /*= nullptr*/)
+bool HardcoreMgr::ShouldDropMoney(Player* player)
 {
     if (sHardcoreConfig.enabled)
     {
@@ -1414,7 +1452,7 @@ bool HardcoreMgr::ShouldDropMoney(Player* player /*= nullptr*/)
     return false;
 }
 
-bool HardcoreMgr::ShouldDropItems(Player* player /*= nullptr*/)
+bool HardcoreMgr::ShouldDropItems(Player* player)
 {
     if (sHardcoreConfig.enabled)
     {
@@ -1427,7 +1465,7 @@ bool HardcoreMgr::ShouldDropItems(Player* player /*= nullptr*/)
     return false;
 }
 
-bool HardcoreMgr::ShouldDropGear(Player* player /*= nullptr*/)
+bool HardcoreMgr::ShouldDropGear(Player* player)
 {
     if (sHardcoreConfig.enabled)
     {
@@ -1443,7 +1481,7 @@ bool HardcoreMgr::ShouldDropGear(Player* player /*= nullptr*/)
     return false;
 }
 
-bool HardcoreMgr::CanRevive(Player* player /*= nullptr*/)
+bool HardcoreMgr::CanRevive(Player* player)
 {
     if (sHardcoreConfig.enabled)
     {
@@ -1462,7 +1500,7 @@ bool HardcoreMgr::CanRevive(Player* player /*= nullptr*/)
     return true;
 }
 
-bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player /*= nullptr*/)
+bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player)
 {
     if (sHardcoreConfig.enabled)
     {
@@ -1481,7 +1519,7 @@ bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player /*= nullptr*/)
     return false;
 }
 
-bool HardcoreMgr::ShouldLevelDown(Player* player /*= nullptr*/, Unit* killer /*= nullptr*/)
+bool HardcoreMgr::ShouldLevelDown(Player* player, Unit* killer /*= nullptr*/)
 {
     if (sHardcoreConfig.enabled)
     {
@@ -1500,13 +1538,13 @@ bool HardcoreMgr::ShouldLevelDown(Player* player /*= nullptr*/, Unit* killer /*=
     return false;
 }
 
-uint32 HardcoreMgr::GetMaxPlayerLoot(Player* player /*= nullptr*/) const
+uint32 HardcoreMgr::GetMaxPlayerLoot() const
 {
     const uint32 maxPlayerLoot = sHardcoreConfig.maxDroppedLoot;
     return maxPlayerLoot > 0 ? maxPlayerLoot : 1;
 }
 
-float HardcoreMgr::GetDropMoneyRate(Player* player /*= nullptr*/) const
+float HardcoreMgr::GetDropMoneyRate(Player* player) const
 {
 #ifdef ENABLE_MANGOSBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
@@ -1516,7 +1554,7 @@ float HardcoreMgr::GetDropMoneyRate(Player* player /*= nullptr*/) const
 #endif
 }
 
-float HardcoreMgr::GetDropItemsRate(Player* player /*= nullptr*/) const
+float HardcoreMgr::GetDropItemsRate(Player* player) const
 {
 #ifdef ENABLE_MANGOSBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
@@ -1526,7 +1564,7 @@ float HardcoreMgr::GetDropItemsRate(Player* player /*= nullptr*/) const
 #endif
 }
 
-float HardcoreMgr::GetDropGearRate(Player* player /*= nullptr*/) const
+float HardcoreMgr::GetDropGearRate(Player* player) const
 {
 #ifdef ENABLE_MANGOSBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
@@ -1536,7 +1574,7 @@ float HardcoreMgr::GetDropGearRate(Player* player /*= nullptr*/) const
 #endif
 }
 
-bool HardcoreMgr::ShouldSpawnGrave(Player* player /*= nullptr*/, Unit* killer /*= nullptr*/)
+bool HardcoreMgr::ShouldSpawnGrave(Player* player, Unit* killer /*= nullptr*/)
 {
     if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
     {
