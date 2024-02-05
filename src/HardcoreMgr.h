@@ -54,6 +54,7 @@ public:
     uint32 GetPlayerId() const { return m_playerId; }
     uint32 GetLootId() const { return m_lootId; }
     uint32 GetMoney() const { return m_money; }
+    void SetMoney(uint32 money);
     bool HasItems() const { return !m_items.empty(); }
     const std::vector<HardcoreLootItem>& GetItems() const { return m_items; }
     const HardcoreLootItem* GetItem(uint32 itemId) const;
@@ -171,6 +172,7 @@ public:
     bool OnLootFill(Loot* loot);
     bool OnLootGenerateMoney(Loot* loot, uint32& outMoney);
     void OnLootAddItem(Loot* loot, LootItem* lootItem);
+    void OnLootSendGold(Loot* loot, uint32 gold);
 
     // Command methods
     void RemoveAllLoot();

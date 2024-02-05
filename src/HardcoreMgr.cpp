@@ -135,7 +135,7 @@ HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lo
     // Create loot table in custom_hardcore_loot_tables and gameobject_loot_template
     for (const HardcoreLootItem& item : items)
     {
-        CharacterDatabase.DirectPExecute("INSERT INTO custom_hardcore_loot_tables (id, item, amount, random_property_id, durability, enchantments) VALUES ('%d', '%d', '%d', '%d', '%d', '%s')",
+        CharacterDatabase.PExecute("INSERT INTO custom_hardcore_loot_tables (id, item, amount, random_property_id, durability, enchantments) VALUES ('%d', '%d', '%d', '%d', '%d', '%s')",
             newLootTableId,
             item.m_id,
             item.m_amount,
@@ -145,7 +145,7 @@ HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lo
     }
 
     // Create game object in custom_hardcore_loot_gameobjects
-    CharacterDatabase.DirectPExecute("INSERT INTO custom_hardcore_loot_gameobjects (id, player, loot_id, loot_table, money, position_x, position_y, position_z, orientation, map) VALUES ('%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d')",
+    CharacterDatabase.PExecute("INSERT INTO custom_hardcore_loot_gameobjects (id, player, loot_id, loot_table, money, position_x, position_y, position_z, orientation, map) VALUES ('%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d')",
         newGOId,
         playerId,
         lootId,
@@ -266,10 +266,16 @@ void HardcoreLootGameObject::Destroy()
     DeSpawn();
 
     // Remove game object from custom_hardcore_loot_gameobjects database
-    CharacterDatabase.DirectPExecute("DELETE FROM custom_hardcore_loot_gameobjects WHERE id = '%d'", m_id);
+    CharacterDatabase.PExecute("DELETE FROM custom_hardcore_loot_gameobjects WHERE id = '%d'", m_id);
 
     // Remove loot table from custom_hardcore_loot_tables database
-    CharacterDatabase.DirectPExecute("DELETE FROM custom_hardcore_loot_tables WHERE id = '%d'", m_lootTableId);
+    CharacterDatabase.PExecute("DELETE FROM custom_hardcore_loot_tables WHERE id = '%d'", m_lootTableId);
+}
+
+void HardcoreLootGameObject::SetMoney(uint32 money)
+{
+    m_money = money;
+    CharacterDatabase.PExecute("UPDATE custom_hardcore_loot_gameobjects SET money = '%d' WHERE id = '%d'", m_money, m_id);
 }
 
 const HardcoreLootItem* HardcoreLootGameObject::GetItem(uint32 itemId) const
@@ -632,7 +638,7 @@ HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 
         newGameObjectId = fields[0].GetUInt32() + 1;
     }
 
-    CharacterDatabase.DirectPExecute("INSERT INTO custom_hardcore_grave_gameobjects (id, player, gameobject_template, position_x, position_y, position_z, orientation, map) VALUES ('%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d')",
+    CharacterDatabase.PExecute("INSERT INTO custom_hardcore_grave_gameobjects (id, player, gameobject_template, position_x, position_y, position_z, orientation, map) VALUES ('%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d')",
         newGameObjectId,
         playerId,
         gameObjectEntry,
@@ -752,7 +758,7 @@ void HardcoreGraveGameObject::Destroy()
     DeSpawn();
 
     // Remove game object from custom_hardcore_grave_gameobjects database
-    CharacterDatabase.DirectPExecute("DELETE FROM custom_hardcore_grave_gameobjects WHERE id = '%d'", m_id);
+    CharacterDatabase.PExecute("DELETE FROM custom_hardcore_grave_gameobjects WHERE id = '%d'", m_id);
 }
 
 HardcorePlayerGrave::HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const std::vector<HardcoreGraveGameObject>& gameObjects)
@@ -875,7 +881,7 @@ void HardcorePlayerGrave::Destroy()
     m_gameObjects.clear();
 
     // Remove game object from gameobject_template database
-    WorldDatabase.DirectPExecute("DELETE FROM gameobject_template WHERE entry = '%d'", m_gameObjectEntry);
+    WorldDatabase.PExecute("DELETE FROM gameobject_template WHERE entry = '%d'", m_gameObjectEntry);
 }
 
 std::string HardcorePlayerGrave::GenerateGraveMessage(const std::string& playerName)
@@ -1319,6 +1325,22 @@ void HardcoreMgr::OnLootAddItem(Loot* loot, LootItem* lootItem)
             {
                 // Remove the allowed guids to allow anybody to loot this
                 lootItem->allowedGuid.clear();
+            }
+        }
+    }
+}
+
+void HardcoreMgr::OnLootSendGold(Loot* loot, uint32 gold)
+{
+    if (sHardcoreConfig.enabled && IsDropLootEnabled())
+    {
+        if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
+        {
+            // Look for the items in the loot cache
+            HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
+            if (lootGameObject)
+            {
+                lootGameObject->SetMoney(0);
             }
         }
     }
