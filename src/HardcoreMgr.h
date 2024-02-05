@@ -196,6 +196,8 @@ private:
     Unit* GetKiller(Player* player) const;
     void  SetKiller(Player* player, Unit* killer);
 
+    bool IsDropLootEnabled() const;
+
 private:
     std::map<uint32, std::map<uint32, HardcorePlayerLoot>> m_playersLoot;
     std::map<uint32, HardcorePlayerGrave> m_playerGraves;

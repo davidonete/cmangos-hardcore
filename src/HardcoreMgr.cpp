@@ -1023,7 +1023,7 @@ void HardcoreMgr::OnPlayerReleaseSpirit(Player* player, bool teleportedToGraveya
 
 void HardcoreMgr::PreLoadLoot()
 {
-    if (ShouldDropLoot())
+    if (IsDropLootEnabled())
     {
         // Load the loot game objects and loot tables
         auto result = CharacterDatabase.Query("SELECT id, player, loot_id FROM custom_hardcore_loot_gameobjects");
@@ -1062,7 +1062,7 @@ void HardcoreMgr::PreLoadLoot()
 
 void HardcoreMgr::LoadLoot()
 {
-    if (ShouldDropLoot())
+    if (IsDropLootEnabled())
     {
         // Add the preloaded loot gameobjects into the world
         for (auto& pair : m_playersLoot)
@@ -1661,4 +1661,16 @@ void HardcoreMgr::SetKiller(Player* player, Unit* killer)
         const ObjectGuid killerGuid = killer ? killer->GetObjectGuid() : ObjectGuid();
         m_lastPlayerDeaths[playerGuid] = killerGuid;
     }
+}
+
+bool HardcoreMgr::IsDropLootEnabled() const
+{
+    return sHardcoreConfig.dropGearPct > 0.0f || 
+#ifdef ENABLE_MANGOSBOTS
+           sHardcoreConfig.botDropGearPct > 0.0f ||
+           sHardcoreConfig.botDropItemsPct > 0.0f ||
+           sHardcoreConfig.botDropMoneyPct > 0.0f ||
+#endif
+           sHardcoreConfig.dropItemsPct > 0.0f || 
+           sHardcoreConfig.dropMoneyPct > 0.0f;
 }
