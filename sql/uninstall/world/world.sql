@@ -1,0 +1,1 @@
+DELETE FROM gameobject_template WHERE `type`=2 AND `CustomData1`=3643;
