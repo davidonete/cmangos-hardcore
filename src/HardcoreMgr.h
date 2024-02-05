@@ -161,7 +161,8 @@ public:
     void OnPlayerCharacterCreated(uint32 playerId, uint32 playerAccountId, const std::string& playerName);
     void OnPlayerCharacterCreated(Player* player);
     void OnPlayerCharacterDeletedFromDB(uint32 playerId);
-    void OnPlayerRevived(Player* player);
+    bool OnPlayerPreResurrect(Player* player);
+    void OnPlayerResurrect(Player* player);
     void OnPlayerDeath(Player* player, Unit* killer);
     void OnPlayerReleaseSpirit(Player* player, bool teleportedToGraveyard);
     void OnPlayerStoreNewItem(Player* player, Loot* loot, Item* item);

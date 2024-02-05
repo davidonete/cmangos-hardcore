@@ -983,6 +983,11 @@ void HardcoreMgr::OnPlayerCharacterDeletedFromDB(uint32 playerId)
     }
 }
 
+bool HardcoreMgr::OnPlayerPreResurrect(Player* player)
+{
+    return CanRevive(player);
+}
+
 void HardcoreMgr::PreLoad()
 {
     sHardcoreConfig.Initialize();
@@ -1002,7 +1007,7 @@ void HardcoreMgr::Init()
     }
 }
 
-void HardcoreMgr::OnPlayerRevived(Player* player)
+void HardcoreMgr::OnPlayerResurrect(Player* player)
 {
     // See if we can retrieve the killer
     Unit* killer = GetKiller(player);
