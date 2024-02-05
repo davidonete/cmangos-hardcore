@@ -931,10 +931,59 @@ std::string HardcorePlayerGrave::GenerateGraveMessage(const std::string& playerN
     return gravestoneMessage;
 }
 
+void HardcoreMgr::OnPlayerCharacterCreated(uint32 playerId, uint32 playerAccountId, const std::string& playerName)
+{
+    // Generate player grave gameobject
+    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
+    {
+#ifdef ENABLE_MANGOSBOTS
+        // Check if the player is not a bot
+        Config config;
+        if (config.SetSource(SYSCONFDIR"aiplayerbot.conf"))
+        {
+            std::string botPrefix = config.GetStringDefault("AiPlayerbot.RandomBotAccountPrefix", "rndbot");
+            std::transform(botPrefix.begin(), botPrefix.end(), botPrefix.begin(), ::toupper);
+
+            auto result = LoginDatabase.PQuery("SELECT username FROM account WHERE id = '%d'", playerAccountId);
+            if (result)
+            {
+                Field* fields = result3->Fetch();
+                const std::string accountName = fields[0].GetCppString();
+                if (accountName.find(botPrefix) != std::string::npos))
+                    return;
+            }
+        }
+#endif
+
+        // Check if the player grave exists
+        if (m_playerGraves.find(playerId) == m_playerGraves.end())
+        {
+            m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName)));
+        }
+    }
+}
+
+void HardcoreMgr::OnPlayerCharacterCreated(Player* player)
+{
+    if (player)
+    {
+        OnPlayerCharacterCreated(player->GetObjectGuid().GetCounter(), player->GetSession()->GetAccountId(), player->GetName());
+    }
+}
+
+void HardcoreMgr::OnPlayerCharacterDeletedFromDB(uint32 playerId)
+{
+    // Check if the player grave exists
+    auto it = m_playerGraves.find(playerId);
+    if (it != m_playerGraves.end())
+    {
+        it->second.Destroy();
+    }
+}
+
 void HardcoreMgr::PreLoad()
 {
     sHardcoreConfig.Initialize();
-
     if (sHardcoreConfig.enabled)
     {
         PreLoadLoot();
@@ -942,7 +991,7 @@ void HardcoreMgr::PreLoad()
     }
 }
 
-void HardcoreMgr::Load()
+void HardcoreMgr::Init()
 {
     if (sHardcoreConfig.enabled)
     {
@@ -1071,6 +1120,26 @@ void HardcoreMgr::LoadLoot()
             {
                 pair2.second.Spawn();
             }
+        }
+    }
+}
+
+void HardcoreMgr::GenerateMissingGraves()
+{
+    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
+    {
+        auto result = CharacterDatabase.Query("SELECT guid, account, name FROM characters");
+        if (result)
+        {
+            do
+            {
+                Field* fields = result->Fetch();
+                const uint32 playerId = fields[0].GetUInt32();
+                const uint32 playerAccountId = fields[1].GetUInt32();
+                const std::string playerName = fields[2].GetCppString();
+                OnPlayerCharacterCreated(playerId, playerAccountId, playerName);
+            }
+            while (result->NextRow());
         }
     }
 }
@@ -1469,9 +1538,9 @@ float HardcoreMgr::GetDropGearRate(Player* player /*= nullptr*/) const
 
 bool HardcoreMgr::ShouldSpawnGrave(Player* player /*= nullptr*/, Unit* killer /*= nullptr*/)
 {
-    if (sHardcoreConfig.enabled)
+    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
     {
-        if (player && sHardcoreConfig.spawnGrave)
+        if (player)
         {
 #ifdef ENABLE_MANGOSBOTS
             // Bots should never spawn a grave
@@ -1488,9 +1557,9 @@ bool HardcoreMgr::ShouldSpawnGrave(Player* player /*= nullptr*/, Unit* killer /*
 
 void HardcoreMgr::PreLoadGraves()
 {
-    if (sHardcoreConfig.spawnGrave)
+    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
     {
-        // Load player graves from custom_hardcore_grave_gameobjects
+        // Load player graves from db
         auto result = WorldDatabase.PQuery("SELECT entry, data10 FROM gameobject_template WHERE type = '%d' AND CustomData1 = '%d'", 2, 3643);
         if (result)
         {
@@ -1509,57 +1578,14 @@ void HardcoreMgr::PreLoadGraves()
             while (result->NextRow());
         }
 
-        // Check for missing gravestones for characters
-#ifdef ENABLE_MANGOSBOTS
-        Config config;
-        if (config.SetSource(SYSCONFDIR"aiplayerbot.conf"))
-#endif
-        {
-#ifdef ENABLE_MANGOSBOTS
-            std::string botPrefix = config.GetStringDefault("AiPlayerbot.RandomBotAccountPrefix", "rndbot");
-            std::transform(botPrefix.begin(), botPrefix.end(), botPrefix.begin(), ::toupper);
-#endif
-            auto result2 = CharacterDatabase.Query("SELECT guid, account, name FROM characters");
-            if (result2)
-            {
-                do
-                {
-                    Field* fields2 = result2->Fetch();
-                    const uint32 playerId = fields2[0].GetUInt32();
-                    const uint32 playerAccountId = fields2[1].GetUInt32();
-                    const std::string playerName = fields2[2].GetCppString();
-
-                    // Check if the player grave exists
-                    if (m_playerGraves.find(playerId) == m_playerGraves.end())
-                    {
-#ifdef ENABLE_MANGOSBOTS
-                        // Check if the player is not a bot
-                        bool isBot = true;
-                        auto result3 = LoginDatabase.PQuery("SELECT username FROM account WHERE id = '%d'", playerAccountId);
-                        if (result3)
-                        {
-                            Field* fields3 = result3->Fetch();
-                            const std::string accountName = fields3[0].GetCppString();
-                            isBot = (accountName.find(botPrefix) != std::string::npos);
-                        }
-
-                        if (!isBot)
-#endif
-                        {
-                            // Create a new player grave
-                            m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName)));
-                        }
-                    }
-                }
-                while(result2->NextRow());
-            }
-        }
+        // Generate missing graves
+        GenerateMissingGraves();
     }
 }
 
 void HardcoreMgr::LoadGraves()
 {
-    if (ShouldSpawnGrave())
+    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
     {
         // Add the preloaded graves gameobjects into the world
         for (auto& pair : m_playerGraves)
@@ -1573,19 +1599,13 @@ void HardcoreMgr::CreateGrave(Player* player, Unit* killer)
 {
     if (player && ShouldSpawnGrave(player, killer))
     {
-        const uint32 playerId = player->GetObjectGuid().GetCounter();
-        const std::string playerName = player->GetName();
-
         // Check if the player grave exists
-        if (m_playerGraves.find(playerId) == m_playerGraves.end())
+        const uint32 playerId = player->GetObjectGuid().GetCounter();
+        auto it = m_playerGraves.find(playerId);
+        if (it != m_playerGraves.end())
         {
-            // Create a new player grave
-            m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName)));
+            it->second.Create();
         }
-
-        // Generate the new loot
-        HardcorePlayerGrave& playerGrave = m_playerGraves.at(playerId);
-        playerGrave.Create();
     }
 }
 
