@@ -1488,7 +1488,7 @@ bool HardcoreMgr::ShouldSpawnGrave(Player* player /*= nullptr*/, Unit* killer /*
 
 void HardcoreMgr::PreLoadGraves()
 {
-    if (ShouldSpawnGrave())
+    if (sHardcoreConfig.spawnGrave)
     {
         // Load player graves from custom_hardcore_grave_gameobjects
         auto result = WorldDatabase.PQuery("SELECT entry, data10 FROM gameobject_template WHERE type = '%d' AND CustomData1 = '%d'", 2, 3643);
