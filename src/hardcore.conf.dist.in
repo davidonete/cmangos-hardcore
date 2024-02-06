@@ -80,7 +80,7 @@
 Hardcore.Enable = 0
 Hardcore.SpawnGrave = 0
 Hardcore.GraveGameObjectID = 61
-Hardcore.GraveMessage = "Shit happens. <PlayerName> | Well, this sucks. <PlayerName> | It's really dark down here. <PlayerName> | Finally some peace and quiet. <PlayerName> | Shhh! I'm sleeping. <PlayerName> | At least we had fun. <PlayerName> | <PlayerName> was so brave until he forgot his parachute."
+Hardcore.GraveMessage = "Shit happens. <PlayerName> | Well, this sucks. <PlayerName> | It is really dark down here. <PlayerName> | Finally some peace and quiet. <PlayerName> | Shhh! I am sleeping. <PlayerName> | At least we had fun. <PlayerName> | <PlayerName> was so brave until he forgot his parachute."
 Hardcore.DropGear = 0
 Hardcore.DropItems = 0
 Hardcore.DropMoney = 0
