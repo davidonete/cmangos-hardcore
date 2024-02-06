@@ -28,6 +28,7 @@ set(LIBRARY_SRCS ${hardcore_source})
 # Define ENABLE_PLAYERBOTS if need
 if (BUILD_MANGOSBOTS OR BUILD_IKE3_BOTS)
 	include_directories(
+		${CMAKE_SOURCE_DIR}/dep/g3dlite
 		${CMAKE_SOURCE_DIR}/src/modules/Bots/playerbot
 		${CMAKE_SOURCE_DIR}/src/modules/Bots/ahbot
 	)
