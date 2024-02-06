@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS `custom_hardcore_loot_gameobjects` (
   `position_z` float NOT NULL DEFAULT '0',
   `orientation` float NOT NULL DEFAULT '0',
   `map` int(11) NOT NULL DEFAULT '0' COMMENT 'Map identifier',
+  `phase_mask` int(11) NOT NULL DEFAULT '0' COMMENT 'Phase mask identifier',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
@@ -31,5 +32,6 @@ CREATE TABLE IF NOT EXISTS `custom_hardcore_grave_gameobjects` (
   `position_z` float NOT NULL DEFAULT '0',
   `orientation` float NOT NULL DEFAULT '0',
   `map` int(11) NOT NULL DEFAULT '0' COMMENT 'Map identifier',
+  `phase_mask` int(11) NOT NULL DEFAULT '0' COMMENT 'Phase mask identifier',
   PRIMARY KEY (`id`, `player`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;

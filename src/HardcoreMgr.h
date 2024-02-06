@@ -38,11 +38,11 @@ struct HardcoreLootItem
 class HardcoreLootGameObject
 {
 private:
-    HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, const std::vector<HardcoreLootItem>& items);
+    HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items);
 
 public:
     static HardcoreLootGameObject Load(uint32 id, uint32 playerId);
-    static HardcoreLootGameObject Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, const std::vector<HardcoreLootItem>& items);
+    static HardcoreLootGameObject Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items);
 
     void Spawn();
     void DeSpawn();
@@ -72,6 +72,7 @@ private:
     float m_positionZ;
     float m_orientation;
     uint32 m_mapId;
+    uint32 m_phaseMask;
     std::vector<HardcoreLootItem> m_items;
 };
 
@@ -101,11 +102,11 @@ private:
 class HardcoreGraveGameObject
 {
 private:
-    HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId);
+    HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask);
 
 public:
     static HardcoreGraveGameObject Load(uint32 id);
-    static HardcoreGraveGameObject Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId);
+    static HardcoreGraveGameObject Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask);
 
     void Spawn();
     void DeSpawn();
@@ -122,6 +123,7 @@ private:
     float m_positionZ;
     float m_orientation;
     uint32 m_mapId;
+    uint32 m_phaseMask;
 };
 
 class HardcorePlayerGrave

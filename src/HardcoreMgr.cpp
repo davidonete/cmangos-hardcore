@@ -54,7 +54,7 @@ HardcoreLootItem::HardcoreLootItem(uint32 id, uint8 amount, uint32 randomPropert
 
 }
 
-HardcoreLootGameObject::HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, const std::vector<HardcoreLootItem>& items)
+HardcoreLootGameObject::HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items)
 : m_id(id)
 , m_playerId(playerId)
 , m_guid(0)
@@ -66,6 +66,7 @@ HardcoreLootGameObject::HardcoreLootGameObject(uint32 id, uint32 playerId, uint3
 , m_positionZ(positionZ)
 , m_orientation(orientation)
 , m_mapId(mapId)
+, m_phaseMask(phaseMask)
 , m_items(items)
 {
 
@@ -74,11 +75,11 @@ HardcoreLootGameObject::HardcoreLootGameObject(uint32 id, uint32 playerId, uint3
 HardcoreLootGameObject HardcoreLootGameObject::Load(uint32 id, uint32 playerId)
 {
     std::vector<HardcoreLootItem> items;
-    uint32 lootId, lootTableId, money, mapId;
+    uint32 lootId, lootTableId, money, mapId, phaseMask;
     float positionX, positionY, positionZ, orientation;
 
     // Load the gameobject info
-    auto result = CharacterDatabase.PQuery("SELECT loot_id, loot_table, money, position_x, position_y, position_z, orientation, map FROM custom_hardcore_loot_gameobjects WHERE id = '%d'", id);
+    auto result = CharacterDatabase.PQuery("SELECT loot_id, loot_table, money, position_x, position_y, position_z, orientation, map, phase_mask FROM custom_hardcore_loot_gameobjects WHERE id = '%d'", id);
     if (result)
     {
         Field* fields = result->Fetch();
@@ -90,6 +91,7 @@ HardcoreLootGameObject HardcoreLootGameObject::Load(uint32 id, uint32 playerId)
         positionZ = fields[5].GetFloat();
         orientation = fields[6].GetFloat();
         mapId = fields[7].GetUInt32();
+        phaseMask = fields[8].GetUInt32();
 
         // Load the gameobject items from the custom_hardcore_loot_tables
         auto result2 = CharacterDatabase.PQuery("SELECT item, amount, random_property_id, durability, enchantments FROM custom_hardcore_loot_tables WHERE id = '%d'", lootTableId);
@@ -109,10 +111,10 @@ HardcoreLootGameObject HardcoreLootGameObject::Load(uint32 id, uint32 playerId)
         }
     }
 
-    return HardcoreLootGameObject(id, playerId, lootId, lootTableId, money, positionX, positionY, positionZ, orientation, mapId, items);
+    return HardcoreLootGameObject(id, playerId, lootId, lootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items);
 }
 
-HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, const std::vector<HardcoreLootItem>& items)
+HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items)
 {
     // Generate valid loot table id
     uint32 newLootTableId = 1;
@@ -145,7 +147,7 @@ HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lo
     }
 
     // Create game object in custom_hardcore_loot_gameobjects
-    CharacterDatabase.PExecute("INSERT INTO custom_hardcore_loot_gameobjects (id, player, loot_id, loot_table, money, position_x, position_y, position_z, orientation, map) VALUES ('%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d')",
+    CharacterDatabase.PExecute("INSERT INTO custom_hardcore_loot_gameobjects (id, player, loot_id, loot_table, money, position_x, position_y, position_z, orientation, map, phase_mask) VALUES ('%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d', '%d')",
         newGOId,
         playerId,
         lootId,
@@ -155,9 +157,10 @@ HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lo
         positionY,
         positionZ,
         orientation,
-        mapId);
+        mapId,
+        phaseMask);
 
-    return HardcoreLootGameObject(newGOId, playerId, lootId, newLootTableId, money, positionX, positionY, positionZ, orientation, mapId, items);
+    return HardcoreLootGameObject(newGOId, playerId, lootId, newLootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items);
 }
 
 void HardcoreLootGameObject::Spawn()
@@ -181,7 +184,11 @@ void HardcoreLootGameObject::Spawn()
             if (map)
             {
                 GameObject* pGameObject = GameObject::CreateGameObject(lootGOEntry);
+#if EXPANSION == 2
+                if (pGameObject->Create(0, goLowGUID, lootGOEntry, map, m_phaseMask, m_positionX, m_positionY, m_positionZ, m_orientation))
+#else
                 if (pGameObject->Create(0, goLowGUID, lootGOEntry, map, m_positionX, m_positionY, m_positionZ, m_orientation))
+#endif
                 {
                     // Save the chest to the database and load game object data
 #if EXPANSION == 0
@@ -548,6 +555,11 @@ bool HardcorePlayerLoot::Create()
             const float playerY = player->GetPositionY();
             const float playerZ = player->GetPositionZ();
             const uint32 mapId = player->GetMapId();
+#if EXPANSION == 2
+            const uint32 phaseMask = player->GetPhaseMask();
+#else
+            const uint32 phaseMask = 0;
+#endif
 
             const float angleIncrement = (2 * M_PI) / gameObjectsLoot.size();
             static const float radius = 3.0f;
@@ -567,7 +579,7 @@ bool HardcorePlayerLoot::Create()
                 // Increment the angle for the next point
                 angle += angleIncrement;
 
-                HardcoreLootGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreLootGameObject::Create(m_playerId, m_id, dropMoney, x, y, z, o, mapId, items)));
+                HardcoreLootGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreLootGameObject::Create(m_playerId, m_id, dropMoney, x, y, z, o, mapId, phaseMask, items)));
                 
                 // We only want the money to drop once
                 if (dropMoney)
@@ -596,7 +608,7 @@ void HardcorePlayerLoot::Destroy()
     m_gameObjects.clear();
 }
 
-HardcoreGraveGameObject::HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId)
+HardcoreGraveGameObject::HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask)
 : m_id(id)
 , m_gameObjectEntry(gameObjectEntry)
 , m_guid(0)
@@ -606,16 +618,17 @@ HardcoreGraveGameObject::HardcoreGraveGameObject(uint32 id, uint32 gameObjectEnt
 , m_positionZ(positionZ)
 , m_orientation(orientation)
 , m_mapId(mapId)
+, m_phaseMask(phaseMask)
 {
 
 }
 
 HardcoreGraveGameObject HardcoreGraveGameObject::Load(uint32 id)
 {
-    uint32 gameObjectEntry, playerId, mapId;
+    uint32 gameObjectEntry, playerId, mapId, phaseMask;
     float positionX, positionY, positionZ, orientation;
 
-    auto result = CharacterDatabase.PQuery("SELECT player, gameobject_template, position_x, position_y, position_z, orientation, map FROM custom_hardcore_grave_gameobjects WHERE id = '%d'", id);
+    auto result = CharacterDatabase.PQuery("SELECT player, gameobject_template, position_x, position_y, position_z, orientation, map, phase_mask FROM custom_hardcore_grave_gameobjects WHERE id = '%d'", id);
     if (result)
     {
         Field* fields = result->Fetch();
@@ -626,12 +639,13 @@ HardcoreGraveGameObject HardcoreGraveGameObject::Load(uint32 id)
         positionZ = fields[4].GetFloat();
         orientation = fields[5].GetFloat();
         mapId = fields[6].GetUInt32();
+        phaseMask = fields[7].GetUInt32();
     }
 
-    return HardcoreGraveGameObject(id, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId);
+    return HardcoreGraveGameObject(id, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask);
 }
 
-HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId)
+HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask)
 {
     // Generate valid game object id
     uint32 newGameObjectId = 1;
@@ -642,7 +656,7 @@ HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 
         newGameObjectId = fields[0].GetUInt32() + 1;
     }
 
-    CharacterDatabase.PExecute("INSERT INTO custom_hardcore_grave_gameobjects (id, player, gameobject_template, position_x, position_y, position_z, orientation, map) VALUES ('%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d')",
+    CharacterDatabase.PExecute("INSERT INTO custom_hardcore_grave_gameobjects (id, player, gameobject_template, position_x, position_y, position_z, orientation, map, phase_mask) VALUES ('%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d', '%d')",
         newGameObjectId,
         playerId,
         gameObjectEntry,
@@ -650,9 +664,10 @@ HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 
         positionY,
         positionZ,
         orientation,
-        mapId);
+        mapId,
+        phaseMask);
 
-    return HardcoreGraveGameObject(newGameObjectId, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId);
+    return HardcoreGraveGameObject(newGameObjectId, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask);
 }
 
 void HardcoreGraveGameObject::Spawn()
@@ -683,7 +698,11 @@ void HardcoreGraveGameObject::Spawn()
             if (map)
             {
                 GameObject* pGameObject = GameObject::CreateGameObject(gameObjectEntry);
+#if EXPANSION == 2
+                if (pGameObject->Create(0, goLowGUID, gameObjectEntry, map, m_phaseMask, m_positionX, m_positionY, m_positionZ, m_orientation))
+#else
                 if (pGameObject->Create(0, goLowGUID, gameObjectEntry, map, m_positionX, m_positionY, m_positionZ, m_orientation))
+#endif
                 {
                     // Save the chest to the database and load game object data
 #if EXPANSION == 0
@@ -870,11 +889,16 @@ void HardcorePlayerGrave::Create()
         float z = player->GetPositionZ();
         const float o = player->GetOrientation();
         const uint32 mapId = player->GetMapId();
+#if EXPANSION == 2
+        const uint32 phaseMask = player->GetPhaseMask();
+#else
+        const uint32 phaseMask = 0;
+#endif
 
         // Check if the height coordinate is valid
         player->UpdateAllowedPositionZ(x, y, z);
 
-        HardcoreGraveGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreGraveGameObject::Create(m_playerId, m_gameObjectEntry, x, y, z, o, mapId)));
+        HardcoreGraveGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreGraveGameObject::Create(m_playerId, m_gameObjectEntry, x, y, z, o, mapId, phaseMask)));
         gameObject.Spawn();
     }
 }
