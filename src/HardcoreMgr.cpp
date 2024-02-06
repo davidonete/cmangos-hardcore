@@ -943,9 +943,9 @@ void HardcoreMgr::OnPlayerCharacterCreated(uint32 playerId, uint32 playerAccount
             auto result = LoginDatabase.PQuery("SELECT username FROM account WHERE id = '%d'", playerAccountId);
             if (result)
             {
-                Field* fields = result3->Fetch();
+                Field* fields = result->Fetch();
                 const std::string accountName = fields[0].GetCppString();
-                if (accountName.find(botPrefix) != std::string::npos))
+                if (accountName.find(botPrefix) != std::string::npos)
                     return;
             }
         }
