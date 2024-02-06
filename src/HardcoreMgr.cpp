@@ -184,7 +184,11 @@ void HardcoreLootGameObject::Spawn()
                 if (pGameObject->Create(0, goLowGUID, lootGOEntry, map, m_positionX, m_positionY, m_positionZ, m_orientation))
                 {
                     // Save the chest to the database and load game object data
+#if EXPANSION == 0
                     pGameObject->SaveToDB(map->GetId());
+#else
+                    pGameObject->SaveToDB();
+#endif
                     if (pGameObject->LoadFromDB(goLowGUID, map, goLowGUID, 0))
                     {
                         // Set the initial state of the chest to be ready to be looted
@@ -682,7 +686,11 @@ void HardcoreGraveGameObject::Spawn()
                 if (pGameObject->Create(0, goLowGUID, gameObjectEntry, map, m_positionX, m_positionY, m_positionZ, m_orientation))
                 {
                     // Save the chest to the database and load game object data
+#if EXPANSION == 0
                     pGameObject->SaveToDB(map->GetId());
+#else
+                    pGameObject->SaveToDB();
+#endif
                     if (pGameObject->LoadFromDB(goLowGUID, map, goLowGUID, 0))
                     {
                         // Spawn the loot into the world
@@ -1365,7 +1373,11 @@ void HardcoreMgr::OnPlayerStoreNewItem(Player* player, Loot* loot, Item* item)
                         // Set the enchantments
                         if (!hardcoreItem->m_enchantments.empty())
                         {
+#if EXPANSION == 0
                             item->_LoadIntoDataField(hardcoreItem->m_enchantments.c_str(), ITEM_FIELD_ENCHANTMENT, MAX_ENCHANTMENT_SLOT * MAX_ENCHANTMENT_OFFSET);
+#else
+                            item->_LoadIntoDataField(hardcoreItem->m_enchantments.c_str(), ITEM_FIELD_ENCHANTMENT_1_1, MAX_ENCHANTMENT_SLOT * MAX_ENCHANTMENT_OFFSET);
+#endif
                         }
 
                         // Set the durability
