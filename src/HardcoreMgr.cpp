@@ -969,7 +969,7 @@ void HardcoreMgr::OnPlayerCharacterCreated(Player* player)
 
 void HardcoreMgr::OnPlayerCharacterDeletedFromDB(uint32 playerId)
 {
-    // Delete grave it
+    // Delete player grave
     auto graveIt = m_playerGraves.find(playerId);
     if (graveIt != m_playerGraves.end())
     {
@@ -977,6 +977,7 @@ void HardcoreMgr::OnPlayerCharacterDeletedFromDB(uint32 playerId)
         m_playerGraves.erase(graveIt);
     }
 
+    // Delete player loot
     auto playerLootIt = m_playersLoot.find(playerId);
     if (playerLootIt != m_playersLoot.end())
     {
