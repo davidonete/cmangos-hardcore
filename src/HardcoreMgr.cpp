@@ -1476,7 +1476,7 @@ bool IsFairKill(Player* player, Unit* killer)
         return killerLevel <= playerLevel + 3;
     }
 
-    return false;
+    return true;
 }
 
 bool HardcoreMgr::ShouldDropLoot(Player* player, Unit* killer /*= nullptr*/)
