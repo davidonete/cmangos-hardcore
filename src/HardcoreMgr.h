@@ -212,6 +212,7 @@ private:
     // Level methods
     bool ShouldLevelDown(Player* player, Unit* killer = nullptr);
 
+public:
     Unit* GetKiller(Player* player) const;
     void  SetKiller(Player* player, Unit* killer);
 

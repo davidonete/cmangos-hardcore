@@ -1456,11 +1456,26 @@ bool IsInBG(Player* player)
 
 bool IsInDungeon(Player* player)
 {
-    if (player && player->IsInWorld() && !player->IsBeingTeleported())
+    if (player && player->IsInWorld())
     {
-        if (const Map* map = player->GetMap())
+        if (!player->IsBeingTeleported())
         {
-            return map->IsDungeon() || map->IsRaid();
+            if (const Map* map = player->GetMap())
+            {
+                return map->IsDungeon() || map->IsRaid();
+            }
+        }
+        else
+        {
+            // Try to get the map from the killer
+            Unit* killer = sHardcoreMgr.GetKiller(player);
+            if (killer)
+            {
+                if (const Map* map = killer->GetMap())
+                {
+                    return map->IsDungeon() || map->IsRaid();
+                }
+            }
         }
     }
 
@@ -1762,7 +1777,7 @@ void HardcoreMgr::LevelDown(Player* player, Unit* killer)
 Unit* HardcoreMgr::GetKiller(Player* player) const
 {
     Unit* killer = nullptr;
-    if (player && player->IsInWorld() && !player->IsBeingTeleported())
+    if (player)
     {
         const uint32 playerGuid = player->GetObjectGuid().GetCounter();
         if (m_lastPlayerDeaths.find(playerGuid) != m_lastPlayerDeaths.end())
