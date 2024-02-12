@@ -1501,10 +1501,10 @@ bool HardcoreMgr::ShouldDropLoot(Player* player, Unit* killer /*= nullptr*/)
         if (player)
         {
 #ifdef ENABLE_MANGOSBOTS
-            // Check if the bot has been killed by another bot
+            // Only drop loot if a bot gets killed by a real player
             if (!player->isRealPlayer())
             {
-                if (killer && killer->IsPlayer() && !((Player*)killer)->isRealPlayer())
+                if (!killer || (killer->IsCreature() || (killer->IsPlayer() && !((Player*)killer)->isRealPlayer())))
                 {
                     return false;
                 }
@@ -1779,6 +1779,12 @@ Unit* HardcoreMgr::GetKiller(Player* player) const
     Unit* killer = nullptr;
     if (player)
     {
+#ifdef ENABLE_MANGOSBOTS
+        // Ignore bots
+        if (!player->isRealPlayer())
+            return nullptr;
+#endif
+
         const uint32 playerGuid = player->GetObjectGuid().GetCounter();
         if (m_lastPlayerDeaths.find(playerGuid) != m_lastPlayerDeaths.end())
         {
@@ -1794,6 +1800,12 @@ void HardcoreMgr::SetKiller(Player* player, Unit* killer)
 {
     if (player)
     {
+#ifdef ENABLE_MANGOSBOTS
+        // Ignore bots
+        if (!player->isRealPlayer())
+            return;
+#endif
+
         const uint32 playerGuid = player->GetObjectGuid().GetCounter();
         const ObjectGuid killerGuid = killer ? killer->GetObjectGuid() : ObjectGuid();
         m_lastPlayerDeaths[playerGuid] = killerGuid;
