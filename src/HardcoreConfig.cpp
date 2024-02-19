@@ -11,7 +11,7 @@ HardcoreConfig::HardcoreConfig()
 , dropGearPct(0.0f)
 , dropItemsPct(0.0f)
 , dropMoneyPct(0.0f)
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
 , botDropGearPct(0.0f)
 , botDropItemsPct(0.0f)
 , botDropMoneyPct(0.0f)
@@ -44,7 +44,7 @@ bool HardcoreConfig::Initialize()
     dropGearPct = config.GetFloatDefault("Hardcore.DropGear", 0.0f);
     dropItemsPct = config.GetFloatDefault("Hardcore.DropItems", 0.0f);
     dropMoneyPct = config.GetFloatDefault("Hardcore.DropMoney", 0.0f);
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
     botDropGearPct = config.GetFloatDefault("Hardcore.BotDropGear", 0.0f);
     botDropItemsPct = config.GetFloatDefault("Hardcore.BotDropItems", 0.0f);
     botDropMoneyPct = config.GetFloatDefault("Hardcore.BotDropMoney", 0.0f);

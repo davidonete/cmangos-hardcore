@@ -23,7 +23,7 @@ public:
     float dropGearPct;
     float dropItemsPct;
     float dropMoneyPct;
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
     float botDropGearPct;
     float botDropItemsPct;
     float botDropMoneyPct;

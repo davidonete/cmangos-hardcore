@@ -462,7 +462,7 @@ bool HardcorePlayerLoot::Create()
                     items.erase(items.begin() + randIdx);
 
                     // Remove the item from the player (except for bots)
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
                     if (player->isRealPlayer())
 #endif
                     {
@@ -542,7 +542,7 @@ bool HardcorePlayerLoot::Create()
                 dropMoney = playerMoney * moneyDropRate;
 
                 // Remove the money from the player (except for bots)
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
                 if (player->isRealPlayer())
 #endif
                 {
@@ -964,7 +964,7 @@ void HardcoreMgr::OnPlayerCharacterCreated(uint32 playerId, uint32 playerAccount
     // Generate player grave gameobject
     if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
     {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
         // Check if the player is not a bot
         Config config;
         if (config.SetSource(SYSCONFDIR"aiplayerbot.conf"))
@@ -1500,7 +1500,7 @@ bool HardcoreMgr::ShouldDropLoot(Player* player, Unit* killer /*= nullptr*/)
     {
         if (player)
         {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
             // Only drop loot if a bot gets killed by a real player
             if (!player->isRealPlayer())
             {
@@ -1566,7 +1566,7 @@ bool HardcoreMgr::CanRevive(Player* player)
     {
         if (player && sHardcoreConfig.reviveDisabled)
         {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
             // Bots always should revive
             if (!player->isRealPlayer())
                 return true;
@@ -1585,7 +1585,7 @@ bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player)
     {
         if (player && CanRevive(player) && sHardcoreConfig.reviveOnGraveyard)
         {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
             // Bots always should revive using ghosts
             if (!player->isRealPlayer())
                 return false;
@@ -1604,7 +1604,7 @@ bool HardcoreMgr::ShouldLevelDown(Player* player, Unit* killer /*= nullptr*/)
     {
         if (player && sHardcoreConfig.levelDownPct > 0.0f)
         {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
             // Bots should never level down
             if (!player->isRealPlayer())
                 return false;
@@ -1625,7 +1625,7 @@ uint32 HardcoreMgr::GetMaxPlayerLoot() const
 
 float HardcoreMgr::GetDropMoneyRate(Player* player) const
 {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
     return isBot ? sHardcoreConfig.botDropMoneyPct : sHardcoreConfig.dropMoneyPct;
 #else
@@ -1635,7 +1635,7 @@ float HardcoreMgr::GetDropMoneyRate(Player* player) const
 
 float HardcoreMgr::GetDropItemsRate(Player* player) const
 {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
     return isBot ? sHardcoreConfig.botDropItemsPct : sHardcoreConfig.dropItemsPct;
 #else
@@ -1645,7 +1645,7 @@ float HardcoreMgr::GetDropItemsRate(Player* player) const
 
 float HardcoreMgr::GetDropGearRate(Player* player) const
 {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
     return isBot ? sHardcoreConfig.botDropGearPct : sHardcoreConfig.dropGearPct;
 #else
@@ -1659,7 +1659,7 @@ bool HardcoreMgr::ShouldSpawnGrave(Player* player, Unit* killer /*= nullptr*/)
     {
         if (player)
         {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
             // Bots should never spawn a grave
             if (!player->isRealPlayer())
                 return false;
@@ -1779,7 +1779,7 @@ Unit* HardcoreMgr::GetKiller(Player* player) const
     Unit* killer = nullptr;
     if (player)
     {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
         // Ignore bots
         if (!player->isRealPlayer())
             return nullptr;
@@ -1800,7 +1800,7 @@ void HardcoreMgr::SetKiller(Player* player, Unit* killer)
 {
     if (player)
     {
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
         // Ignore bots
         if (!player->isRealPlayer())
             return;
@@ -1815,7 +1815,7 @@ void HardcoreMgr::SetKiller(Player* player, Unit* killer)
 bool HardcoreMgr::IsDropLootEnabled() const
 {
     return sHardcoreConfig.dropGearPct > 0.0f || 
-#ifdef ENABLE_MANGOSBOTS
+#ifdef ENABLE_PLAYERBOTS
            sHardcoreConfig.botDropGearPct > 0.0f ||
            sHardcoreConfig.botDropItemsPct > 0.0f ||
            sHardcoreConfig.botDropMoneyPct > 0.0f ||
