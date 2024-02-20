@@ -16,11 +16,11 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-set(LIBRARY_NAME Hardcore)
+set(LIBRARY_NAME hardcore)
 
 #Base files
 file(GLOB hardcore_source ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
-    source_group("Hardcore" FILES ${hardcore_source})
+    source_group("hardcore" FILES ${hardcore_source})
 
 #Define base source library
 set(LIBRARY_SRCS ${hardcore_source})
