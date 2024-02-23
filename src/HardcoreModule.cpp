@@ -1079,7 +1079,8 @@ namespace hardcore_module
 
     bool HardcoreModule::OnPreResurrect(Player* player)
     {
-        return CanRevive(player);
+        // Prevent resurrecting
+        return !CanRevive(player);
     }
 
     void HardcoreModule::OnWorldPreInitialized()

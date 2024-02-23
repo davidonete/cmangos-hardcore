@@ -1,4 +1,5 @@
-CREATE TABLE IF NOT EXISTS `custom_hardcore_loot_gameobjects` (
+DROP TABLE IF EXISTS `custom_hardcore_loot_gameobjects`;
+CREATE TABLE `custom_hardcore_loot_gameobjects` (
   `id` int(11) unsigned NOT NULL,
   `player` int(11) unsigned NOT NULL COMMENT 'Player identifier',
   `loot_id` int(11) unsigned NOT NULL COMMENT 'The loot group this gameobject is part of',
@@ -13,7 +14,8 @@ CREATE TABLE IF NOT EXISTS `custom_hardcore_loot_gameobjects` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
-CREATE TABLE IF NOT EXISTS `custom_hardcore_loot_tables` (
+DROP TABLE IF EXISTS `custom_hardcore_loot_tables`;
+CREATE TABLE `custom_hardcore_loot_tables` (
   `id` int(11) unsigned NOT NULL,
   `item` int(11) unsigned NOT NULL COMMENT 'Item identifier',
   `amount` tinyint(3) unsigned NOT NULL DEFAULT '1' COMMENT 'Amount of items',
@@ -23,7 +25,8 @@ CREATE TABLE IF NOT EXISTS `custom_hardcore_loot_tables` (
   PRIMARY KEY (`id`, `item`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
-CREATE TABLE IF NOT EXISTS `custom_hardcore_grave_gameobjects` (
+DROP TABLE IF EXISTS `custom_hardcore_grave_gameobjects`;
+CREATE TABLE `custom_hardcore_grave_gameobjects` (
   `id` int(11) unsigned NOT NULL,
   `player` int(11) unsigned NOT NULL COMMENT 'Player identifier',
   `gameobject_template` int(11) unsigned NOT NULL COMMENT 'gameobject_template entry',
