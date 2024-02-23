@@ -1458,6 +1458,50 @@ namespace hardcore_module
         }
     }
 
+    bool HardcoreModule::HandleChatCommand(ChatHandler* chatHanlder, const std::string& cmd)
+    {
+        if (!cmd.empty())
+        {
+            WorldSession* session = chatHanlder->GetSession();
+            if (cmd == "reset")
+            {
+                RemoveAllLoot();
+                RemoveAllGraves();
+            }
+            else if (cmd == "resetgraves")
+            {
+                RemoveAllGraves();
+            }
+            else if (cmd == "resetloot")
+            {
+                RemoveAllLoot();
+            }
+            else if (cmd == "spawnloot")
+            {
+                if (session && session->GetPlayer())
+                {
+                    CreateLoot(session->GetPlayer(), nullptr);
+                }
+            }
+            else if (cmd == "spawngrave")
+            {
+                if (session && session->GetPlayer())
+                {
+                    CreateGrave(session->GetPlayer());
+                }
+            }
+            else if (cmd == "leveldown")
+            {
+                if (session && session->GetPlayer())
+                {
+                    LevelDown(session->GetPlayer());
+                }
+            }
+        }
+
+        return true;
+    }
+
     void HardcoreModule::OnStoreNewItem(Player* player, Loot* loot, Item* item)
     {
         if (GetConfig()->enabled && IsDropLootEnabled())

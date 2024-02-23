@@ -161,6 +161,7 @@ namespace hardcore_module
         HardcoreModule() : Module("Hardcore") {}
         HardcoreModuleConfig* CreateConfig() override { return new HardcoreModuleConfig(); }
         const HardcoreModuleConfig* GetConfig() const override { return (HardcoreModuleConfig*)GetConfigInternal(); }
+        const char* GetChatCommandPrefix() const { return "hardcore"; }
 
         void OnWorldPreInitialized() override;
         void OnInitialize() override;
@@ -179,6 +180,9 @@ namespace hardcore_module
         bool OnGenerateMoneyLoot(Loot* loot, uint32& outMoney) override;
         void OnAddItem(Loot* loot, LootItem* lootItem) override;
         void OnSendGold(Loot* loot, uint32 gold) override;
+
+        // Commands
+        bool HandleChatCommand(ChatHandler* chatHanlder, const std::string& cmd) override;
 
     private:
         // Loot methods
