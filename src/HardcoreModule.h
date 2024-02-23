@@ -1,20 +1,17 @@
-#ifndef MANGOS_HARDCOREMGR_H
-#define MANGOS_HARDCOREMGR_H
+#ifndef MANGOS_HARDCORE_MODULE_H
+#define MANGOS_HARDCORE_MODULE_H
+
+#include "Module.h"
+#include "HardcoreModuleConfig.h"
 
 #include "Entities/ObjectGuid.h"
-#include "Platform/Define.h"
 
 #include <utility>
 #include <vector>
 #include <string>
 #include <map>
 
-class Item;
-class Loot;
-class Player;
-class Unit;
-
-struct LootItem;
+class HardcoreModule;
 
 // Bag, Slot
 typedef std::pair<uint8, uint8> ItemSlot;
@@ -38,11 +35,11 @@ struct HardcoreLootItem
 class HardcoreLootGameObject
 {
 private:
-    HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items);
+    HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, HardcoreModule* module);
 
 public:
-    static HardcoreLootGameObject Load(uint32 id, uint32 playerId);
-    static HardcoreLootGameObject Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items);
+    static HardcoreLootGameObject Load(uint32 id, uint32 playerId, HardcoreModule* module);
+    static HardcoreLootGameObject Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, HardcoreModule* module);
 
     void Spawn();
     void DeSpawn();
@@ -74,12 +71,13 @@ private:
     uint32 m_mapId;
     uint32 m_phaseMask;
     std::vector<HardcoreLootItem> m_items;
+    HardcoreModule* m_module;
 };
 
 class HardcorePlayerLoot
 {
 public:
-    HardcorePlayerLoot(uint32 id, uint32 playerId);
+    HardcorePlayerLoot(uint32 id, uint32 playerId, HardcoreModule* module);
     void LoadGameObject(uint32 gameObjectId);
     HardcoreLootGameObject* FindGameObjectByGUID(const uint32 guid);
     bool RemoveGameObject(uint32 gameObjectId);
@@ -97,16 +95,17 @@ private:
     uint32 m_id; 
     uint32 m_playerId;
     std::vector<HardcoreLootGameObject> m_gameObjects;
+    HardcoreModule* m_module;
 };
 
 class HardcoreGraveGameObject
 {
 private:
-    HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask);
+    HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, HardcoreModule* module);
 
 public:
-    static HardcoreGraveGameObject Load(uint32 id);
-    static HardcoreGraveGameObject Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask);
+    static HardcoreGraveGameObject Load(uint32 id, HardcoreModule* module);
+    static HardcoreGraveGameObject Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, HardcoreModule* module);
 
     void Spawn();
     void DeSpawn();
@@ -124,17 +123,18 @@ private:
     float m_orientation;
     uint32 m_mapId;
     uint32 m_phaseMask;
+    HardcoreModule* m_module;
 };
 
 class HardcorePlayerGrave
 {
 private:
-    HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry);
-    HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const std::vector<HardcoreGraveGameObject>& gameObjects);
+    HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, HardcoreModule* module);
+    HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const std::vector<HardcoreGraveGameObject>& gameObjects, HardcoreModule* module);
 
 public:
-    static HardcorePlayerGrave Load(uint32 playerId, uint32 gameObjectEntry);
-    static HardcorePlayerGrave Generate(uint32 playerId, const std::string& playerName);
+    static HardcorePlayerGrave Load(uint32 playerId, uint32 gameObjectEntry, HardcoreModule* module);
+    static HardcorePlayerGrave Generate(uint32 playerId, const std::string& playerName, HardcoreModule* module);
 
     void Spawn();
     void DeSpawn();
@@ -142,46 +142,41 @@ public:
     void Destroy();
 
 private:
-    static std::string GenerateGraveMessage(const std::string& playerName);
+    static std::string GenerateGraveMessage(const std::string& playerName, HardcoreModule* module);
 
 private:
     uint32 m_playerId;
     uint32 m_gameObjectEntry;
     std::vector<HardcoreGraveGameObject> m_gameObjects;
+    HardcoreModule* m_module;
 };
 
-class HardcoreMgr
+class HardcoreModule : public Module
 {
     friend HardcorePlayerLoot;
 
 public:
-    HardcoreMgr() {}
+    HardcoreModule() : Module("Hardcore") {}
+    HardcoreModuleConfig* CreateConfig() override { return new HardcoreModuleConfig(); }
+    const HardcoreModuleConfig* GetConfig() const override { return (HardcoreModuleConfig*)GetConfigInternal(); }
 
-    void PreLoad();
-    void Init();
+    void OnWorldPreInitialized() override;
+    void OnInitialize() override;
 
     // Player hooks
-    void OnPlayerCharacterCreated(uint32 playerId, uint32 playerAccountId, const std::string& playerName);
-    void OnPlayerCharacterCreated(Player* player);
-    void OnPlayerCharacterDeletedFromDB(uint32 playerId);
-    bool OnPlayerPreResurrect(Player* player);
-    void OnPlayerResurrect(Player* player);
-    void OnPlayerDeath(Player* player, Unit* killer);
-    void OnPlayerReleaseSpirit(Player* player, bool teleportedToGraveyard);
-    void OnPlayerStoreNewItem(Player* player, Loot* loot, Item* item);
+    void OnCharacterCreated(Player* player) override;
+    void OnDeleteFromDB(uint32 playerId) override;
+    bool OnPreResurrect(Player* player) override;
+    void OnResurrect(Player* player) override;
+    void OnDeath(Player* player, Unit* killer) override;
+    void OnReleaseSpirit(Player* player, const WorldSafeLocsEntry* closestGrave) override;
+    void OnStoreNewItem(Player* player, Loot* loot, Item* item) override;
 
     // Loot hooks
-    bool OnLootFill(Loot* loot);
-    bool OnLootGenerateMoney(Loot* loot, uint32& outMoney);
-    void OnLootAddItem(Loot* loot, LootItem* lootItem);
-    void OnLootSendGold(Loot* loot, uint32 gold);
-
-    // Command methods
-    void RemoveAllLoot();
-    void RemoveAllGraves();
-    void CreateLoot(Player* player, Unit* killer);
-    void CreateGrave(Player* player, Unit* killer = nullptr);
-    void LevelDown(Player* player, Unit* killer = nullptr);
+    bool OnFillLoot(Loot* loot, Player* owner) override;
+    bool OnGenerateMoneyLoot(Loot* loot, uint32& outMoney) override;
+    void OnAddItem(Loot* loot, LootItem* lootItem) override;
+    void OnSendGold(Loot* loot, uint32 gold) override;
 
 private:
     // Loot methods
@@ -190,6 +185,8 @@ private:
 
     void PreLoadLoot();
     void LoadLoot();
+    void RemoveAllLoot();
+    void CreateLoot(Player* player, Unit* killer);
     bool RemoveLoot(uint32 playerId, uint32 lootId);
     uint32 GetMaxPlayerLoot() const;
     float GetDropMoneyRate(Player* player) const;
@@ -202,6 +199,8 @@ private:
     bool IsDropLootEnabled() const;
 
     // Grave methods
+    void RemoveAllGraves();
+    void CreateGrave(Player* player, Unit* killer = nullptr);
     bool ShouldSpawnGrave(Player* player, Unit* killer = nullptr);
     bool CanRevive(Player* player);
     bool ShouldReviveOnGraveyard(Player* player);
@@ -210,6 +209,7 @@ private:
     void LoadGraves();
 
     // Level methods
+    void LevelDown(Player* player, Unit* killer = nullptr);
     bool ShouldLevelDown(Player* player, Unit* killer = nullptr);
 
 public:
@@ -222,5 +222,5 @@ private:
     std::map<uint32, ObjectGuid> m_lastPlayerDeaths;
 };
 
-#define sHardcoreMgr MaNGOS::Singleton<HardcoreMgr>::Instance()
+static HardcoreModule hardcoreModule;
 #endif

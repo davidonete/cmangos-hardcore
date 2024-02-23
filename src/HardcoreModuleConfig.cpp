@@ -1,10 +1,8 @@
-#include "HardcoreConfig.h"
+#include "HardcoreModuleConfig.h"
 
-#include "Log.h"
-#include "SystemConfig.h"
-
-HardcoreConfig::HardcoreConfig()
-: enabled(false)
+HardcoreModuleConfig::HardcoreModuleConfig()
+: ModuleConfig("hardcore.conf")
+, enabled(false)
 , spawnGrave(false)
 , graveGameObjectId(0U)
 , graveMessage("")
@@ -25,18 +23,8 @@ HardcoreConfig::HardcoreConfig()
 
 }
 
-INSTANTIATE_SINGLETON_1(HardcoreConfig);
-
-bool HardcoreConfig::Initialize()
+bool HardcoreModuleConfig::OnLoad()
 {
-    sLog.outString("Initializing Hardcore by Flekz");
-
-    if (!config.SetSource(SYSCONFDIR"hardcore.conf"))
-    {
-        sLog.outError("Failed to open configuration file hardcore.conf");
-        return false;
-    }
-
     enabled = config.GetBoolDefault("Hardcore.Enable", false);
     spawnGrave = config.GetBoolDefault("Hardcore.SpawnGrave", false);
     graveGameObjectId = config.GetIntDefault("Hardcore.GraveGameObjectID", 0U);
@@ -54,7 +42,5 @@ bool HardcoreConfig::Initialize()
     reviveOnGraveyard = config.GetBoolDefault("Hardcore.ReviveOnGraveyard", false);
     levelDownPct = config.GetFloatDefault("Hardcore.LevelDown", 0.0f);
     maxDroppedLoot = config.GetIntDefault("Hardcore.MaxPlayerLoot", 0U);
-
-    sLog.outString("Hardcore configuration loaded");
     return true;
 }

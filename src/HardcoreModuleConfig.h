@@ -1,19 +1,11 @@
 #pragma once
+#include "ModuleConfig.h"
 
-#include "Config/Config.h"
-
-class HardcoreConfig
+class HardcoreModuleConfig : public ModuleConfig
 {
 public:
-    HardcoreConfig();
-
-    static HardcoreConfig& instance()
-    {
-        static HardcoreConfig instance;
-        return instance;
-    }
-
-    bool Initialize();
+    HardcoreModuleConfig();
+    bool OnLoad() override;
 
 public:
     bool enabled;
@@ -33,10 +25,4 @@ public:
     bool reviveOnGraveyard;
     float levelDownPct;
     uint32 maxDroppedLoot;
-
-private:
-    Config config;
 };
-
-#define sHardcoreConfig MaNGOS::Singleton<HardcoreConfig>::Instance()
-

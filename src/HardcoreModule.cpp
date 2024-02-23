@@ -1,5 +1,4 @@
-#include "HardcoreMgr.h"
-#include "HardcoreConfig.h"
+#include "HardcoreModule.h"
 
 #include "Entities/Player.h"
 #include "Globals/ObjectMgr.h"
@@ -54,7 +53,7 @@ HardcoreLootItem::HardcoreLootItem(uint32 id, uint8 amount, uint32 randomPropert
 
 }
 
-HardcoreLootGameObject::HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items)
+HardcoreLootGameObject::HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, HardcoreModule* module)
 : m_id(id)
 , m_playerId(playerId)
 , m_guid(0)
@@ -68,11 +67,12 @@ HardcoreLootGameObject::HardcoreLootGameObject(uint32 id, uint32 playerId, uint3
 , m_mapId(mapId)
 , m_phaseMask(phaseMask)
 , m_items(items)
+, m_module(module)
 {
 
 }
 
-HardcoreLootGameObject HardcoreLootGameObject::Load(uint32 id, uint32 playerId)
+HardcoreLootGameObject HardcoreLootGameObject::Load(uint32 id, uint32 playerId, HardcoreModule* module)
 {
     std::vector<HardcoreLootItem> items;
     uint32 lootId, lootTableId, money, mapId, phaseMask;
@@ -111,10 +111,10 @@ HardcoreLootGameObject HardcoreLootGameObject::Load(uint32 id, uint32 playerId)
         }
     }
 
-    return HardcoreLootGameObject(id, playerId, lootId, lootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items);
+    return HardcoreLootGameObject(id, playerId, lootId, lootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items, module);
 }
 
-HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items)
+HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, HardcoreModule* module)
 {
     // Generate valid loot table id
     uint32 newLootTableId = 1;
@@ -160,14 +160,14 @@ HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lo
         mapId,
         phaseMask);
 
-    return HardcoreLootGameObject(newGOId, playerId, lootId, newLootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items);
+    return HardcoreLootGameObject(newGOId, playerId, lootId, newLootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items, module);
 }
 
 void HardcoreLootGameObject::Spawn()
 {
     if (!IsSpawned())
     {
-        const static uint32 lootGOEntry = sHardcoreConfig.lootGameObjectId;
+        const static uint32 lootGOEntry = m_module->GetConfig()->lootGameObjectId;
         const uint32 goLowGUID = sObjectMgr.GenerateStaticGameObjectLowGuid();
         if (goLowGUID)
         {
@@ -323,16 +323,17 @@ bool HardcoreLootGameObject::RemoveItem(uint32 itemId)
     return false;
 }
 
-HardcorePlayerLoot::HardcorePlayerLoot(uint32 lootId, uint32 playerId)
+HardcorePlayerLoot::HardcorePlayerLoot(uint32 lootId, uint32 playerId, HardcoreModule* module)
 : m_id(lootId)
 , m_playerId(playerId)
+, m_module(module)
 {
 
 }
 
 void HardcorePlayerLoot::LoadGameObject(uint32 gameObjectId)
 {
-    m_gameObjects.push_back(std::move(HardcoreLootGameObject::Load(gameObjectId, m_playerId)));
+    m_gameObjects.push_back(std::move(HardcoreLootGameObject::Load(gameObjectId, m_playerId, m_module)));
 }
 
 HardcoreLootGameObject* HardcorePlayerLoot::FindGameObjectByGUID(const uint32 guid)
@@ -476,7 +477,7 @@ bool HardcorePlayerLoot::Create()
         };
 
         // Get player's gear
-        if (sHardcoreMgr.ShouldDropGear(player))
+        if (m_module->ShouldDropGear(player))
         {
             std::vector<HardcoreLootItem> playerGear;
 
@@ -487,11 +488,11 @@ bool HardcorePlayerLoot::Create()
             }
 
             // Generate random list of gear to drop
-            SelectItemsToDrop(sHardcoreMgr.GetDropGearRate(player), playerGear, playerLoot);
+            SelectItemsToDrop(m_module->GetDropGearRate(player), playerGear, playerLoot);
         }
 
         // Get player's bag items
-        if (sHardcoreMgr.ShouldDropItems(player))
+        if (m_module->ShouldDropItems(player))
         {
             std::vector<HardcoreLootItem> playerItems;
 
@@ -511,7 +512,7 @@ bool HardcorePlayerLoot::Create()
             }
 
             // Generate random list of items to drop
-            SelectItemsToDrop(sHardcoreMgr.GetDropItemsRate(player), playerItems, playerLoot);
+            SelectItemsToDrop(m_module->GetDropItemsRate(player), playerItems, playerLoot);
         }
 
         if (!playerLoot.empty())
@@ -535,9 +536,9 @@ bool HardcorePlayerLoot::Create()
 
             // Calculate the amount of money to drop
             uint32 dropMoney = 0;
-            if (sHardcoreMgr.ShouldDropMoney(player))
+            if (m_module->ShouldDropMoney(player))
             {
-                const float moneyDropRate = std::min(sHardcoreMgr.GetDropMoneyRate(player), 1.0f);
+                const float moneyDropRate = std::min(m_module->GetDropMoneyRate(player), 1.0f);
                 const uint32 playerMoney = player->GetMoney();
                 dropMoney = playerMoney * moneyDropRate;
 
@@ -579,7 +580,7 @@ bool HardcorePlayerLoot::Create()
                 // Increment the angle for the next point
                 angle += angleIncrement;
 
-                HardcoreLootGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreLootGameObject::Create(m_playerId, m_id, dropMoney, x, y, z, o, mapId, phaseMask, items)));
+                HardcoreLootGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreLootGameObject::Create(m_playerId, m_id, dropMoney, x, y, z, o, mapId, phaseMask, items, m_module)));
                 
                 // We only want the money to drop once
                 if (dropMoney)
@@ -608,7 +609,7 @@ void HardcorePlayerLoot::Destroy()
     m_gameObjects.clear();
 }
 
-HardcoreGraveGameObject::HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask)
+HardcoreGraveGameObject::HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, HardcoreModule* module)
 : m_id(id)
 , m_gameObjectEntry(gameObjectEntry)
 , m_guid(0)
@@ -619,11 +620,12 @@ HardcoreGraveGameObject::HardcoreGraveGameObject(uint32 id, uint32 gameObjectEnt
 , m_orientation(orientation)
 , m_mapId(mapId)
 , m_phaseMask(phaseMask)
+, m_module(module)
 {
 
 }
 
-HardcoreGraveGameObject HardcoreGraveGameObject::Load(uint32 id)
+HardcoreGraveGameObject HardcoreGraveGameObject::Load(uint32 id, HardcoreModule* module)
 {
     uint32 gameObjectEntry, playerId, mapId, phaseMask;
     float positionX, positionY, positionZ, orientation;
@@ -642,10 +644,10 @@ HardcoreGraveGameObject HardcoreGraveGameObject::Load(uint32 id)
         phaseMask = fields[7].GetUInt32();
     }
 
-    return HardcoreGraveGameObject(id, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask);
+    return HardcoreGraveGameObject(id, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask, module);
 }
 
-HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask)
+HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, HardcoreModule* module)
 {
     // Generate valid game object id
     uint32 newGameObjectId = 1;
@@ -667,7 +669,7 @@ HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 
         mapId,
         phaseMask);
 
-    return HardcoreGraveGameObject(newGameObjectId, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask);
+    return HardcoreGraveGameObject(newGameObjectId, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask, module);
 }
 
 void HardcoreGraveGameObject::Spawn()
@@ -679,7 +681,7 @@ void HardcoreGraveGameObject::Spawn()
         const GameObjectInfo* goInfo = sObjectMgr.GetGameObjectInfo(m_gameObjectEntry);
         if (!goInfo)
         {
-            gameObjectEntry = sHardcoreConfig.graveGameObjectId;
+            gameObjectEntry = m_module->GetConfig()->graveGameObjectId;
         }
 
         const uint32 goLowGUID = sObjectMgr.GenerateStaticGameObjectLowGuid();
@@ -788,22 +790,24 @@ void HardcoreGraveGameObject::Destroy()
     CharacterDatabase.PExecute("DELETE FROM custom_hardcore_grave_gameobjects WHERE id = '%d'", m_id);
 }
 
-HardcorePlayerGrave::HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const std::vector<HardcoreGraveGameObject>& gameObjects)
+HardcorePlayerGrave::HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const std::vector<HardcoreGraveGameObject>& gameObjects, HardcoreModule* module)
 : m_playerId(playerId)
 , m_gameObjectEntry(gameObjectEntry)
 , m_gameObjects(gameObjects)
+, m_module(module)
 {
     
 }
 
-HardcorePlayerGrave::HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry)
+HardcorePlayerGrave::HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, HardcoreModule* module)
 : m_playerId(playerId)
 , m_gameObjectEntry(gameObjectEntry)
+, m_module(module)
 {
     
 }
 
-HardcorePlayerGrave HardcorePlayerGrave::Load(uint32 playerId, uint32 gameObjectEntry)
+HardcorePlayerGrave HardcorePlayerGrave::Load(uint32 playerId, uint32 gameObjectEntry, HardcoreModule* module)
 {
     std::vector<HardcoreGraveGameObject> gameObjects;
     auto result = CharacterDatabase.PQuery("SELECT id FROM custom_hardcore_grave_gameobjects WHERE player = '%d'", playerId);
@@ -813,15 +817,15 @@ HardcorePlayerGrave HardcorePlayerGrave::Load(uint32 playerId, uint32 gameObject
         {
             Field* fields = result->Fetch();
             const uint32 gameObjectId = fields[0].GetUInt32();
-            gameObjects.push_back(std::move(HardcoreGraveGameObject::Load(gameObjectId)));
+            gameObjects.push_back(std::move(HardcoreGraveGameObject::Load(gameObjectId, module)));
         } 
         while (result->NextRow());
     }
 
-    return HardcorePlayerGrave(playerId, gameObjectEntry, gameObjects);
+    return HardcorePlayerGrave(playerId, gameObjectEntry, gameObjects, module);
 }
 
-HardcorePlayerGrave HardcorePlayerGrave::Generate(uint32 playerId, const std::string& playerName)
+HardcorePlayerGrave HardcorePlayerGrave::Generate(uint32 playerId, const std::string& playerName, HardcoreModule* module)
 {
     // Generate valid game object entry
     uint32 newGameObjectEntry = 0;
@@ -837,14 +841,14 @@ HardcorePlayerGrave HardcorePlayerGrave::Generate(uint32 playerId, const std::st
         // Get gameobject info from existing gameobject from config
         float size = 1.29f;
         uint32 displayId = 12;
-        const GameObjectInfo* goInfo = ObjectMgr::GetGameObjectInfo(sHardcoreConfig.graveGameObjectId);
+        const GameObjectInfo* goInfo = ObjectMgr::GetGameObjectInfo(module->GetConfig()->graveGameObjectId);
         if (goInfo)
         {
             displayId = goInfo->displayId;
             size = goInfo->size;
         }
 
-        std::string graveMessage = GenerateGraveMessage(playerName);
+        std::string graveMessage = GenerateGraveMessage(playerName, module);
         WorldDatabase.PExecute("INSERT INTO gameobject_template (entry, type, displayId, name, size, data10, CustomData1) VALUES ('%d', '%d', '%d', '%s', '%f', '%d', '%d')",
             newGameObjectEntry, 
             2, 
@@ -855,7 +859,7 @@ HardcorePlayerGrave HardcorePlayerGrave::Generate(uint32 playerId, const std::st
             3643);
     }
 
-    return HardcorePlayerGrave(playerId, newGameObjectEntry);
+    return HardcorePlayerGrave(playerId, newGameObjectEntry, module);
 }
 
 void HardcorePlayerGrave::Spawn()
@@ -898,7 +902,7 @@ void HardcorePlayerGrave::Create()
         // Check if the height coordinate is valid
         player->UpdateAllowedPositionZ(x, y, z);
 
-        HardcoreGraveGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreGraveGameObject::Create(m_playerId, m_gameObjectEntry, x, y, z, o, mapId, phaseMask)));
+        HardcoreGraveGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreGraveGameObject::Create(m_playerId, m_gameObjectEntry, x, y, z, o, mapId, phaseMask, m_module)));
         gameObject.Spawn();
     }
 }
@@ -916,10 +920,10 @@ void HardcorePlayerGrave::Destroy()
     WorldDatabase.PExecute("DELETE FROM gameobject_template WHERE entry = '%d'", m_gameObjectEntry);
 }
 
-std::string HardcorePlayerGrave::GenerateGraveMessage(const std::string& playerName)
+std::string HardcorePlayerGrave::GenerateGraveMessage(const std::string& playerName, HardcoreModule* module)
 {
     std::string gravestoneMessage;
-    std::string gravestoneMessages = sHardcoreConfig.graveMessage;
+    std::string gravestoneMessages = module->GetConfig()->graveMessage;
 
     // Check if we have multiple messages to select from
     char separator = '|';
@@ -959,11 +963,13 @@ std::string HardcorePlayerGrave::GenerateGraveMessage(const std::string& playerN
     return gravestoneMessage;
 }
 
-void HardcoreMgr::OnPlayerCharacterCreated(uint32 playerId, uint32 playerAccountId, const std::string& playerName)
+void HardcoreModule::OnCharacterCreated(Player* player)
 {
     // Generate player grave gameobject
-    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
+    if (GetConfig()->enabled && GetConfig()->spawnGrave)
     {
+        const uint32 playerId = player->GetObjectGuid().GetCounter();
+
 #ifdef ENABLE_PLAYERBOTS
         // Check if the player is not a bot
         Config config;
@@ -972,6 +978,7 @@ void HardcoreMgr::OnPlayerCharacterCreated(uint32 playerId, uint32 playerAccount
             std::string botPrefix = config.GetStringDefault("AiPlayerbot.RandomBotAccountPrefix", "rndbot");
             std::transform(botPrefix.begin(), botPrefix.end(), botPrefix.begin(), ::toupper);
 
+            uint32 playerAccountId = player->GetSession()->GetAccountId();
             auto result = LoginDatabase.PQuery("SELECT username FROM account WHERE id = '%d'", playerAccountId);
             if (result)
             {
@@ -986,20 +993,12 @@ void HardcoreMgr::OnPlayerCharacterCreated(uint32 playerId, uint32 playerAccount
         // Check if the player grave exists
         if (m_playerGraves.find(playerId) == m_playerGraves.end())
         {
-            m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName)));
+            m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, player->GetName(), this)));
         }
     }
 }
 
-void HardcoreMgr::OnPlayerCharacterCreated(Player* player)
-{
-    if (player)
-    {
-        OnPlayerCharacterCreated(player->GetObjectGuid().GetCounter(), player->GetSession()->GetAccountId(), player->GetName());
-    }
-}
-
-void HardcoreMgr::OnPlayerCharacterDeletedFromDB(uint32 playerId)
+void HardcoreModule::OnDeleteFromDB(uint32 playerId)
 {
     // Delete player grave
     auto graveIt = m_playerGraves.find(playerId);
@@ -1022,31 +1021,30 @@ void HardcoreMgr::OnPlayerCharacterDeletedFromDB(uint32 playerId)
     }
 }
 
-bool HardcoreMgr::OnPlayerPreResurrect(Player* player)
+bool HardcoreModule::OnPreResurrect(Player* player)
 {
     return CanRevive(player);
 }
 
-void HardcoreMgr::PreLoad()
+void HardcoreModule::OnWorldPreInitialized()
 {
-    sHardcoreConfig.Initialize();
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
         PreLoadLoot();
         PreLoadGraves();
     }
 }
 
-void HardcoreMgr::Init()
+void HardcoreModule::OnInitialize()
 {
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
         LoadLoot();
         LoadGraves();
     }
 }
 
-void HardcoreMgr::OnPlayerResurrect(Player* player)
+void HardcoreModule::OnResurrect(Player* player)
 {
     // See if we can retrieve the killer
     Unit* killer = GetKiller(player);
@@ -1058,9 +1056,9 @@ void HardcoreMgr::OnPlayerResurrect(Player* player)
     SetKiller(player, nullptr);
 }
 
-void HardcoreMgr::OnPlayerDeath(Player* player, Unit* killer)
+void HardcoreModule::OnDeath(Player* player, Unit* killer)
 {
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
         // Check if the killer is a pet and if so get the owner
         if (killer && killer->IsCreature() && killer->GetOwner())
@@ -1077,8 +1075,9 @@ void HardcoreMgr::OnPlayerDeath(Player* player, Unit* killer)
     }
 }
 
-void HardcoreMgr::OnPlayerReleaseSpirit(Player* player, bool teleportedToGraveyard)
+void HardcoreModule::OnReleaseSpirit(Player* player, const WorldSafeLocsEntry* closestGrave)
 {
+    const bool teleportedToGraveyard = closestGrave != nullptr;
     if (player && teleportedToGraveyard && ShouldReviveOnGraveyard(player))
     {
         player->ResurrectPlayer(1.0f);
@@ -1116,7 +1115,7 @@ void HardcoreMgr::OnPlayerReleaseSpirit(Player* player, bool teleportedToGraveya
     }
 }
 
-void HardcoreMgr::PreLoadLoot()
+void HardcoreModule::PreLoadLoot()
 {
     if (IsDropLootEnabled())
     {
@@ -1143,7 +1142,7 @@ void HardcoreMgr::PreLoadLoot()
                 if (playerLoots.find(lootId) == playerLoots.end())
                 {
                     // If not add it to the player loot
-                    playerLoots.insert(std::make_pair(lootId, HardcorePlayerLoot(lootId, playerId)));
+                    playerLoots.insert(std::make_pair(lootId, HardcorePlayerLoot(lootId, playerId, this)));
                 }
 
                 // Load the game object
@@ -1155,7 +1154,7 @@ void HardcoreMgr::PreLoadLoot()
     }
 }
 
-void HardcoreMgr::LoadLoot()
+void HardcoreModule::LoadLoot()
 {
     if (IsDropLootEnabled())
     {
@@ -1170,9 +1169,9 @@ void HardcoreMgr::LoadLoot()
     }
 }
 
-void HardcoreMgr::GenerateMissingGraves()
+void HardcoreModule::GenerateMissingGraves()
 {
-    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
+    if (GetConfig()->enabled && GetConfig()->spawnGrave)
     {
         auto result = CharacterDatabase.Query("SELECT guid, account, name FROM characters");
         if (result)
@@ -1183,14 +1182,38 @@ void HardcoreMgr::GenerateMissingGraves()
                 const uint32 playerId = fields[0].GetUInt32();
                 const uint32 playerAccountId = fields[1].GetUInt32();
                 const std::string playerName = fields[2].GetCppString();
-                OnPlayerCharacterCreated(playerId, playerAccountId, playerName);
+                
+#ifdef ENABLE_PLAYERBOTS
+                // Check if the player is not a bot
+                Config config;
+                if (config.SetSource(SYSCONFDIR"aiplayerbot.conf"))
+                {
+                    std::string botPrefix = config.GetStringDefault("AiPlayerbot.RandomBotAccountPrefix", "rndbot");
+                    std::transform(botPrefix.begin(), botPrefix.end(), botPrefix.begin(), ::toupper);
+
+                    auto result = LoginDatabase.PQuery("SELECT username FROM account WHERE id = '%d'", playerAccountId);
+                    if (result)
+                    {
+                        Field* fields = result->Fetch();
+                        const std::string accountName = fields[0].GetCppString();
+                        if (accountName.find(botPrefix) != std::string::npos)
+                            return;
+                    }
+                }
+#endif
+
+                // Check if the player grave exists
+                if (m_playerGraves.find(playerId) == m_playerGraves.end())
+                {
+                    m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName, this)));
+                }
             }
             while (result->NextRow());
         }
     }
 }
 
-HardcoreLootGameObject* HardcoreMgr::FindLootGOByGUID(const uint32 guid)
+HardcoreLootGameObject* HardcoreModule::FindLootGOByGUID(const uint32 guid)
 {
     for (auto it = m_playersLoot.begin(); it != m_playersLoot.end(); ++it)
     {
@@ -1207,7 +1230,7 @@ HardcoreLootGameObject* HardcoreMgr::FindLootGOByGUID(const uint32 guid)
     return nullptr;
 }
 
-HardcorePlayerLoot* HardcoreMgr::FindLootByID(const uint32 playerId, const uint32 lootId)
+HardcorePlayerLoot* HardcoreModule::FindLootByID(const uint32 playerId, const uint32 lootId)
 {
     auto playerLootsIt = m_playersLoot.find(playerId);
     if (playerLootsIt != m_playersLoot.end())
@@ -1223,7 +1246,7 @@ HardcorePlayerLoot* HardcoreMgr::FindLootByID(const uint32 playerId, const uint3
     return nullptr;
 }
 
-void HardcoreMgr::CreateLoot(Player* player, Unit* killer)
+void HardcoreModule::CreateLoot(Player* player, Unit* killer)
 {
     if (player && ShouldDropLoot(player, killer))
     {
@@ -1261,7 +1284,7 @@ void HardcoreMgr::CreateLoot(Player* player, Unit* killer)
         }
 
         // Generate new loot
-        playerLoots.insert(std::make_pair(newLootId, HardcorePlayerLoot(newLootId, playerId)));
+        playerLoots.insert(std::make_pair(newLootId, HardcorePlayerLoot(newLootId, playerId, this)));
         HardcorePlayerLoot& playerLoot = playerLoots.at(newLootId);
         if (!playerLoot.Create())
         {
@@ -1271,7 +1294,7 @@ void HardcoreMgr::CreateLoot(Player* player, Unit* killer)
     }
 }
 
-bool HardcoreMgr::RemoveLoot(uint32 playerId, uint32 lootId)
+bool HardcoreModule::RemoveLoot(uint32 playerId, uint32 lootId)
 {
     HardcorePlayerLoot* playerLoot = FindLootByID(playerId, lootId);
     if (playerLoot)
@@ -1291,7 +1314,7 @@ bool HardcoreMgr::RemoveLoot(uint32 playerId, uint32 lootId)
     return false;
 }
 
-void HardcoreMgr::RemoveAllLoot()
+void HardcoreModule::RemoveAllLoot()
 {
     for (auto& pair : m_playersLoot)
     {
@@ -1304,9 +1327,9 @@ void HardcoreMgr::RemoveAllLoot()
     m_playersLoot.clear();
 }
 
-bool HardcoreMgr::OnLootFill(Loot* loot)
+bool HardcoreModule::OnFillLoot(Loot* loot, Player* owner)
 {
-    if (sHardcoreConfig.enabled && IsDropLootEnabled())
+    if (GetConfig()->enabled && IsDropLootEnabled())
     {
         if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
         {
@@ -1327,9 +1350,9 @@ bool HardcoreMgr::OnLootFill(Loot* loot)
     return false;
 }
 
-bool HardcoreMgr::OnLootGenerateMoney(Loot* loot, uint32& outMoney)
+bool HardcoreModule::OnGenerateMoneyLoot(Loot* loot, uint32& outMoney)
 {
-    if (sHardcoreConfig.enabled && IsDropLootEnabled())
+    if (GetConfig()->enabled && IsDropLootEnabled())
     {
         if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
         {
@@ -1346,9 +1369,9 @@ bool HardcoreMgr::OnLootGenerateMoney(Loot* loot, uint32& outMoney)
     return false;
 }
 
-void HardcoreMgr::OnLootAddItem(Loot* loot, LootItem* lootItem)
+void HardcoreModule::OnAddItem(Loot* loot, LootItem* lootItem)
 {
-    if (sHardcoreConfig.enabled && IsDropLootEnabled())
+    if (GetConfig()->enabled && IsDropLootEnabled())
     {
         if (loot && lootItem && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
         {
@@ -1363,9 +1386,9 @@ void HardcoreMgr::OnLootAddItem(Loot* loot, LootItem* lootItem)
     }
 }
 
-void HardcoreMgr::OnLootSendGold(Loot* loot, uint32 gold)
+void HardcoreModule::OnSendGold(Loot* loot, uint32 gold)
 {
-    if (sHardcoreConfig.enabled && IsDropLootEnabled())
+    if (GetConfig()->enabled && IsDropLootEnabled())
     {
         if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
         {
@@ -1379,9 +1402,9 @@ void HardcoreMgr::OnLootSendGold(Loot* loot, uint32 gold)
     }
 }
 
-void HardcoreMgr::OnPlayerStoreNewItem(Player* player, Loot* loot, Item* item)
+void HardcoreModule::OnStoreNewItem(Player* player, Loot* loot, Item* item)
 {
-    if (sHardcoreConfig.enabled && IsDropLootEnabled())
+    if (GetConfig()->enabled && IsDropLootEnabled())
     {
         if (loot && item && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
         {
@@ -1454,7 +1477,7 @@ bool IsInBG(Player* player)
 #endif
 }
 
-bool IsInDungeon(Player* player)
+bool IsInDungeon(Player* player, HardcoreModule* module)
 {
     if (player && player->IsInWorld())
     {
@@ -1468,7 +1491,7 @@ bool IsInDungeon(Player* player)
         else
         {
             // Try to get the map from the killer
-            Unit* killer = sHardcoreMgr.GetKiller(player);
+            Unit* killer = module->GetKiller(player);
             if (killer)
             {
                 if (const Map* map = killer->GetMap())
@@ -1494,9 +1517,9 @@ bool IsFairKill(Player* player, Unit* killer)
     return true;
 }
 
-bool HardcoreMgr::ShouldDropLoot(Player* player, Unit* killer /*= nullptr*/)
+bool HardcoreModule::ShouldDropLoot(Player* player, Unit* killer /*= nullptr*/)
 {
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
         if (player)
         {
@@ -1518,9 +1541,9 @@ bool HardcoreMgr::ShouldDropLoot(Player* player, Unit* killer /*= nullptr*/)
     return false;
 }
 
-bool HardcoreMgr::ShouldDropMoney(Player* player)
+bool HardcoreModule::ShouldDropMoney(Player* player)
 {
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
         if (!IsInBG(player) && !IsMaxLevel(player))
         {
@@ -1531,9 +1554,9 @@ bool HardcoreMgr::ShouldDropMoney(Player* player)
     return false;
 }
 
-bool HardcoreMgr::ShouldDropItems(Player* player)
+bool HardcoreModule::ShouldDropItems(Player* player)
 {
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
         if (!IsInBG(player) && !IsMaxLevel(player))
         {
@@ -1544,9 +1567,9 @@ bool HardcoreMgr::ShouldDropItems(Player* player)
     return false;
 }
 
-bool HardcoreMgr::ShouldDropGear(Player* player)
+bool HardcoreModule::ShouldDropGear(Player* player)
 {
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
         if (player)
         {
@@ -1560,11 +1583,11 @@ bool HardcoreMgr::ShouldDropGear(Player* player)
     return false;
 }
 
-bool HardcoreMgr::CanRevive(Player* player)
+bool HardcoreModule::CanRevive(Player* player)
 {
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
-        if (player && sHardcoreConfig.reviveDisabled)
+        if (player && GetConfig()->reviveDisabled)
         {
 #ifdef ENABLE_PLAYERBOTS
             // Bots always should revive
@@ -1579,11 +1602,11 @@ bool HardcoreMgr::CanRevive(Player* player)
     return true;
 }
 
-bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player)
+bool HardcoreModule::ShouldReviveOnGraveyard(Player* player)
 {
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
-        if (player && CanRevive(player) && sHardcoreConfig.reviveOnGraveyard)
+        if (player && CanRevive(player) && GetConfig()->reviveOnGraveyard)
         {
 #ifdef ENABLE_PLAYERBOTS
             // Bots always should revive using ghosts
@@ -1591,18 +1614,18 @@ bool HardcoreMgr::ShouldReviveOnGraveyard(Player* player)
                 return false;
 #endif
 
-            return !IsInBG(player) && !IsInDungeon(player);
+            return !IsInBG(player) && !IsInDungeon(player, this);
         }
     }
 
     return false;
 }
 
-bool HardcoreMgr::ShouldLevelDown(Player* player, Unit* killer /*= nullptr*/)
+bool HardcoreModule::ShouldLevelDown(Player* player, Unit* killer /*= nullptr*/)
 {
-    if (sHardcoreConfig.enabled)
+    if (GetConfig()->enabled)
     {
-        if (player && sHardcoreConfig.levelDownPct > 0.0f)
+        if (player && GetConfig()->levelDownPct > 0.0f)
         {
 #ifdef ENABLE_PLAYERBOTS
             // Bots should never level down
@@ -1617,45 +1640,45 @@ bool HardcoreMgr::ShouldLevelDown(Player* player, Unit* killer /*= nullptr*/)
     return false;
 }
 
-uint32 HardcoreMgr::GetMaxPlayerLoot() const
+uint32 HardcoreModule::GetMaxPlayerLoot() const
 {
-    const uint32 maxPlayerLoot = sHardcoreConfig.maxDroppedLoot;
+    const uint32 maxPlayerLoot = GetConfig()->maxDroppedLoot;
     return maxPlayerLoot > 0 ? maxPlayerLoot : 1;
 }
 
-float HardcoreMgr::GetDropMoneyRate(Player* player) const
+float HardcoreModule::GetDropMoneyRate(Player* player) const
 {
 #ifdef ENABLE_PLAYERBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
-    return isBot ? sHardcoreConfig.botDropMoneyPct : sHardcoreConfig.dropMoneyPct;
+    return isBot ? GetConfig()->botDropMoneyPct : GetConfig()->dropMoneyPct;
 #else
-    return sHardcoreConfig.dropMoneyPct;
+    return GetConfig()->dropMoneyPct;
 #endif
 }
 
-float HardcoreMgr::GetDropItemsRate(Player* player) const
+float HardcoreModule::GetDropItemsRate(Player* player) const
 {
 #ifdef ENABLE_PLAYERBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
-    return isBot ? sHardcoreConfig.botDropItemsPct : sHardcoreConfig.dropItemsPct;
+    return isBot ? GetConfig()->botDropItemsPct : GetConfig()->dropItemsPct;
 #else
-    return sHardcoreConfig.dropItemsPct;
+    return GetConfig()->dropItemsPct;
 #endif
 }
 
-float HardcoreMgr::GetDropGearRate(Player* player) const
+float HardcoreModule::GetDropGearRate(Player* player) const
 {
 #ifdef ENABLE_PLAYERBOTS
     const bool isBot = player ? !player->isRealPlayer() : false;
-    return isBot ? sHardcoreConfig.botDropGearPct : sHardcoreConfig.dropGearPct;
+    return isBot ? GetConfig()->botDropGearPct : GetConfig()->dropGearPct;
 #else
-    return sHardcoreConfig.dropGearPct;
+    return GetConfig()->dropGearPct;
 #endif
 }
 
-bool HardcoreMgr::ShouldSpawnGrave(Player* player, Unit* killer /*= nullptr*/)
+bool HardcoreModule::ShouldSpawnGrave(Player* player, Unit* killer /*= nullptr*/)
 {
-    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
+    if (GetConfig()->enabled && GetConfig()->spawnGrave)
     {
         if (player)
         {
@@ -1672,9 +1695,9 @@ bool HardcoreMgr::ShouldSpawnGrave(Player* player, Unit* killer /*= nullptr*/)
     return false;
 }
 
-void HardcoreMgr::PreLoadGraves()
+void HardcoreModule::PreLoadGraves()
 {
-    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
+    if (GetConfig()->enabled && GetConfig()->spawnGrave)
     {
         // Load player graves from db
         auto result = WorldDatabase.PQuery("SELECT entry, data10 FROM gameobject_template WHERE type = '%d' AND CustomData1 = '%d'", 2, 3643);
@@ -1689,7 +1712,7 @@ void HardcoreMgr::PreLoadGraves()
                 if (m_playerGraves.find(playerId) == m_playerGraves.end())
                 {
                     // If not load player grave
-                    m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Load(playerId, gameObjectEntry)));
+                    m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Load(playerId, gameObjectEntry, this)));
                 }
             }
             while (result->NextRow());
@@ -1700,9 +1723,9 @@ void HardcoreMgr::PreLoadGraves()
     }
 }
 
-void HardcoreMgr::LoadGraves()
+void HardcoreModule::LoadGraves()
 {
-    if (sHardcoreConfig.enabled && sHardcoreConfig.spawnGrave)
+    if (GetConfig()->enabled && GetConfig()->spawnGrave)
     {
         // Add the preloaded graves gameobjects into the world
         for (auto& pair : m_playerGraves)
@@ -1712,7 +1735,7 @@ void HardcoreMgr::LoadGraves()
     }
 }
 
-void HardcoreMgr::CreateGrave(Player* player, Unit* killer)
+void HardcoreModule::CreateGrave(Player* player, Unit* killer)
 {
     if (player && ShouldSpawnGrave(player, killer))
     {
@@ -1726,7 +1749,7 @@ void HardcoreMgr::CreateGrave(Player* player, Unit* killer)
     }
 }
 
-void HardcoreMgr::RemoveAllGraves()
+void HardcoreModule::RemoveAllGraves()
 {
     for (auto& pair : m_playerGraves)
     {
@@ -1736,12 +1759,12 @@ void HardcoreMgr::RemoveAllGraves()
     m_playerGraves.clear();
 }
 
-void HardcoreMgr::LevelDown(Player* player, Unit* killer)
+void HardcoreModule::LevelDown(Player* player, Unit* killer)
 {
     if (player && ShouldLevelDown(player, killer))
     {
         // Calculate how many levels and XP (%) we have to remove
-        const float levelDownRate = sHardcoreConfig.levelDownPct;
+        const float levelDownRate = GetConfig()->levelDownPct;
         uint32 totalLevelXP = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
         uint32 curXP = player->GetUInt32Value(PLAYER_XP);
         totalLevelXP = totalLevelXP ? totalLevelXP : 1;
@@ -1774,7 +1797,7 @@ void HardcoreMgr::LevelDown(Player* player, Unit* killer)
     }
 }
 
-Unit* HardcoreMgr::GetKiller(Player* player) const
+Unit* HardcoreModule::GetKiller(Player* player) const
 {
     Unit* killer = nullptr;
     if (player)
@@ -1796,7 +1819,7 @@ Unit* HardcoreMgr::GetKiller(Player* player) const
     return killer;
 }
 
-void HardcoreMgr::SetKiller(Player* player, Unit* killer)
+void HardcoreModule::SetKiller(Player* player, Unit* killer)
 {
     if (player)
     {
@@ -1812,18 +1835,19 @@ void HardcoreMgr::SetKiller(Player* player, Unit* killer)
     }
 }
 
-bool HardcoreMgr::IsDropLootEnabled() const
+bool HardcoreModule::IsDropLootEnabled() const
 {
-    return sHardcoreConfig.dropGearPct > 0.0f || 
+    return GetConfig()->dropGearPct > 0.0f || 
 #ifdef ENABLE_PLAYERBOTS
-           sHardcoreConfig.botDropGearPct > 0.0f ||
-           sHardcoreConfig.botDropItemsPct > 0.0f ||
-           sHardcoreConfig.botDropMoneyPct > 0.0f ||
+           GetConfig()->botDropGearPct > 0.0f ||
+           GetConfig()->botDropItemsPct > 0.0f ||
+           GetConfig()->botDropMoneyPct > 0.0f ||
 #endif
-           sHardcoreConfig.dropItemsPct > 0.0f || 
-           sHardcoreConfig.dropMoneyPct > 0.0f;
+           GetConfig()->dropItemsPct > 0.0f || 
+           GetConfig()->dropMoneyPct > 0.0f;
 }
 
+/*
 bool ChatHandler::HandleHardcoreCommand(char* args)
 {
     std::string command = args;
@@ -1833,39 +1857,40 @@ bool ChatHandler::HandleHardcoreCommand(char* args)
     {
         if (!strcmp(cmd, "reset"))
         {
-            sHardcoreMgr.RemoveAllLoot();
-            sHardcoreMgr.RemoveAllGraves();
+            sHardcoreModule.RemoveAllLoot();
+            sHardcoreModule.RemoveAllGraves();
         }
         else if (!strcmp(cmd, "resetgraves"))
         {
-            sHardcoreMgr.RemoveAllGraves();
+            sHardcoreModule.RemoveAllGraves();
         }
         else if (!strcmp(cmd, "resetloot"))
         {
-            sHardcoreMgr.RemoveAllLoot();
+            sHardcoreModule.RemoveAllLoot();
         }
         else if (!strcmp(cmd, "spawnloot"))
         {
             if (m_session && m_session->GetPlayer())
             {
-                sHardcoreMgr.CreateLoot(m_session->GetPlayer(), nullptr);
+                sHardcoreModule.CreateLoot(m_session->GetPlayer(), nullptr);
             }
         }
         else if (!strcmp(cmd, "spawngrave"))
         {
             if (m_session && m_session->GetPlayer())
             {
-                sHardcoreMgr.CreateGrave(m_session->GetPlayer());
+                sHardcoreModule.CreateGrave(m_session->GetPlayer());
             }
         }
         else if (!strcmp(cmd, "leveldown"))
         {
             if (m_session && m_session->GetPlayer())
             {
-                sHardcoreMgr.LevelDown(m_session->GetPlayer());
+                sHardcoreModule.LevelDown(m_session->GetPlayer());
             }
         }
     }
 
     return true;
 }
+*/
