@@ -1443,7 +1443,7 @@ namespace hardcore_module
         }
     }
 
-    void HardcoreModule::OnSendGold(Loot* loot, uint32 gold)
+    void HardcoreModule::OnSendGold(Loot* loot, Player* player, uint32 gold, uint8 lootMethod)
     {
         if (GetConfig()->enabled && IsDropLootEnabled())
         {

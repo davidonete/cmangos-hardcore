@@ -178,7 +178,7 @@ namespace hardcore_module
         bool OnFillLoot(Loot* loot, Player* owner) override;
         bool OnGenerateMoneyLoot(Loot* loot, uint32& outMoney) override;
         void OnAddItem(Loot* loot, LootItem* lootItem) override;
-        void OnSendGold(Loot* loot, uint32 gold) override;
+        void OnSendGold(Loot* loot, Player* player, uint32 gold, uint8 lootMethod) override;
 
         // Commands
         std::vector<ModuleChatCommand>* GetCommandTable() override;
