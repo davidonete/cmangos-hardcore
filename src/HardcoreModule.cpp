@@ -1459,48 +1459,95 @@ namespace hardcore_module
         }
     }
 
-    bool HardcoreModule::HandleChatCommand(ChatHandler* chatHanlder, const std::string& cmd)
+    std::vector<ModuleChatCommand>* HardcoreModule::GetCommandTable()
     {
-        if (!cmd.empty())
+        static std::vector<ModuleChatCommand> commandTable =
         {
-            WorldSession* session = chatHanlder->GetSession();
-            if (cmd == "reset")
+            { "reset", std::bind(&HardcoreModule::HandleResetCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "resetgraves", std::bind(&HardcoreModule::HandleResetGravesCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "resetloot", std::bind(&HardcoreModule::HandleResetLootCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "spawnloot", std::bind(&HardcoreModule::HandleSpawnLootCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "spawngrave", std::bind(&HardcoreModule::HandleSpawnGraveCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "leveldown", std::bind(&HardcoreModule::HandleLevelDownCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+        };
+
+        return &commandTable;
+    }
+
+    bool HardcoreModule::HandleResetCommand(WorldSession* session, const std::string& args)
+    {
+        if (GetConfig()->enabled)
+        {
+            RemoveAllLoot();
+            RemoveAllGraves();
+            return true;
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::HandleResetGravesCommand(WorldSession* session, const std::string& args)
+    {
+        if (GetConfig()->enabled)
+        {
+            RemoveAllGraves();
+            return true;
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::HandleResetLootCommand(WorldSession* session, const std::string& args)
+    {
+        if (GetConfig()->enabled)
+        {
+            RemoveAllLoot();
+            return true;
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::HandleSpawnLootCommand(WorldSession* session, const std::string& args)
+    {
+        if (GetConfig()->enabled)
+        {
+            if (session && session->GetPlayer())
             {
-                RemoveAllLoot();
-                RemoveAllGraves();
-            }
-            else if (cmd == "resetgraves")
-            {
-                RemoveAllGraves();
-            }
-            else if (cmd == "resetloot")
-            {
-                RemoveAllLoot();
-            }
-            else if (cmd == "spawnloot")
-            {
-                if (session && session->GetPlayer())
-                {
-                    CreateLoot(session->GetPlayer(), nullptr);
-                }
-            }
-            else if (cmd == "spawngrave")
-            {
-                if (session && session->GetPlayer())
-                {
-                    CreateGrave(session->GetPlayer());
-                }
-            }
-            else if (cmd == "leveldown")
-            {
-                if (session && session->GetPlayer())
-                {
-                    LevelDown(session->GetPlayer());
-                }
+                CreateLoot(session->GetPlayer(), nullptr);
+                return true;
             }
         }
 
-        return true;
+        return false;
+    }
+
+    bool HardcoreModule::HandleSpawnGraveCommand(WorldSession* session, const std::string& args)
+    {
+        if (GetConfig()->enabled)
+        {
+            if (session && session->GetPlayer())
+            {
+                CreateGrave(session->GetPlayer());
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::HandleLevelDownCommand(WorldSession* session, const std::string& args)
+    {
+        if (GetConfig()->enabled)
+        {
+            if (session && session->GetPlayer())
+            {
+                LevelDown(session->GetPlayer());
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     void HardcoreModule::OnStoreNewItem(Player* player, Loot* loot, Item* item)

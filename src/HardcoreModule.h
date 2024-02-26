@@ -161,7 +161,6 @@ namespace hardcore_module
         HardcoreModule() : Module("Hardcore") {}
         HardcoreModuleConfig* CreateConfig() override { return new HardcoreModuleConfig(); }
         const HardcoreModuleConfig* GetConfig() const override { return (HardcoreModuleConfig*)GetConfigInternal(); }
-        const char* GetChatCommandPrefix() const { return "hardcore"; }
 
         void OnWorldPreInitialized() override;
         void OnInitialize() override;
@@ -182,7 +181,14 @@ namespace hardcore_module
         void OnSendGold(Loot* loot, uint32 gold) override;
 
         // Commands
-        bool HandleChatCommand(ChatHandler* chatHanlder, const std::string& cmd) override;
+        std::vector<ModuleChatCommand>* GetCommandTable() override;
+        const char* GetChatCommandPrefix() const override { return "hardcore"; }
+        bool HandleResetCommand(WorldSession* session, const std::string& args);
+        bool HandleResetGravesCommand(WorldSession* session, const std::string& args);
+        bool HandleResetLootCommand(WorldSession* session, const std::string& args);
+        bool HandleSpawnLootCommand(WorldSession* session, const std::string& args);
+        bool HandleSpawnGraveCommand(WorldSession* session, const std::string& args);
+        bool HandleLevelDownCommand(WorldSession* session, const std::string& args);
 
     private:
         // Loot methods
