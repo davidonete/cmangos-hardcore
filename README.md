@@ -10,6 +10,9 @@ This module allows you to configure the following:
 - If the player is allowed to revive after death
 - If the player should auto revive in the nearest graveyard instead of running back to the corpse as a ghost
 
+# Available Cores
+Classic, TBC and WoTLK
+
 # How to install
 1. Follow the instructions in https://github.com/davidonete/cmangos-modules?tab=readme-ov-file#how-to-install
 2. Enable the `BUILD_MODULE_HARDCORE` flag in cmake and run cmake. The module should be installed in `src/modules/hardcore`
