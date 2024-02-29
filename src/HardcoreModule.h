@@ -172,7 +172,7 @@ namespace hardcore_module
         void OnResurrect(Player* player) override;
         void OnDeath(Player* player, Unit* killer) override;
         void OnReleaseSpirit(Player* player, const WorldSafeLocsEntry* closestGrave) override;
-        void OnStoreNewItem(Player* player, Loot* loot, Item* item) override;
+        void OnStoreItem(Player* player, Loot* loot, Item* item) override;
 
         // Loot hooks
         bool OnFillLoot(Loot* loot, Player* owner) override;

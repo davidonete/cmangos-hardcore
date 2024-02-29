@@ -1550,7 +1550,7 @@ namespace hardcore_module
         return false;
     }
 
-    void HardcoreModule::OnStoreNewItem(Player* player, Loot* loot, Item* item)
+    void HardcoreModule::OnStoreItem(Player* player, Loot* loot, Item* item)
     {
         if (GetConfig()->enabled && IsDropLootEnabled())
         {
