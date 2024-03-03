@@ -1777,7 +1777,7 @@ namespace hardcore_module
                     return false;
                 }
 
-                if (!GetConfig()->levelDownOnDungeons && IsInRaid(player, this))
+                if (!GetConfig()->levelDownOnRaids && IsInRaid(player, this))
                 {
                     return false;
                 }
