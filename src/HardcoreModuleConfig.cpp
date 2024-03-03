@@ -1,4 +1,5 @@
 #include "HardcoreModuleConfig.h"
+#include "Server/DBCEnums.h"
 
 HardcoreModuleConfig::HardcoreModuleConfig()
 : ModuleConfig("hardcore.conf")
@@ -23,6 +24,10 @@ HardcoreModuleConfig::HardcoreModuleConfig()
 , dropOnRaids(false)
 , levelDownOnDungeons(false)
 , levelDownOnRaids(false)
+, dropMinLevel(0)
+, dropMaxLevel(0)
+, levelDownMinLevel(0)
+, levelDownMaxLevel(0)
 {
 
 }
@@ -50,5 +55,9 @@ bool HardcoreModuleConfig::OnLoad()
     dropOnRaids = config.GetBoolDefault("Hardcore.DropOnRaids", false);
     levelDownOnDungeons = config.GetBoolDefault("Hardcore.LevelDownOnDungeons", false);
     levelDownOnRaids = config.GetBoolDefault("Hardcore.LevelDownOnRaids", false);
+    dropMinLevel = config.GetIntDefault("Hardcore.DropMinLevel", 1);
+    dropMaxLevel = config.GetIntDefault("Hardcore.DropMaxLevel", DEFAULT_MAX_LEVEL);
+    levelDownMinLevel = config.GetIntDefault("Hardcore.LevelDownMinLevel", 1);
+    levelDownMaxLevel = config.GetIntDefault("Hardcore.LevelDownMaxLevel", DEFAULT_MAX_LEVEL);
     return true;
 }

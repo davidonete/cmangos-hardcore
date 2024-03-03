@@ -29,4 +29,8 @@ public:
     bool dropOnRaids;
     bool levelDownOnDungeons;
     bool levelDownOnRaids;
+    uint32 dropMinLevel;
+    uint32 dropMaxLevel;
+    uint32 levelDownMinLevel;
+    uint32 levelDownMaxLevel;
 };

@@ -9,11 +9,6 @@
 
 namespace hardcore_module
 {
-    bool IsMaxLevel(Player* player)
-    {
-        return player && player->GetLevel() >= sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL);
-    }
-
     bool IsInBG(Player* player)
     {
 #if EXPANSION >= 1
@@ -1656,6 +1651,12 @@ namespace hardcore_module
                 }
 #endif
 
+                const uint32 playerLevel = player->GetLevel();
+                if (playerLevel < GetConfig()->dropMinLevel || playerLevel >= GetConfig()->dropMaxLevel)
+                {
+                    return false;
+                }
+
                 if (!GetConfig()->dropOnDungeons && IsInDungeon(player, this))
                 {
                     return false;
@@ -1677,7 +1678,7 @@ namespace hardcore_module
     {
         if (GetConfig()->enabled)
         {
-            if (!IsInBG(player) && !IsMaxLevel(player))
+            if (!IsInBG(player))
             {
                 return GetDropMoneyRate(player);
             }
@@ -1690,7 +1691,7 @@ namespace hardcore_module
     {
         if (GetConfig()->enabled)
         {
-            if (!IsInBG(player) && !IsMaxLevel(player))
+            if (!IsInBG(player))
             {
                 return GetDropItemsRate(player);
             }
@@ -1705,7 +1706,7 @@ namespace hardcore_module
         {
             if (player)
             {
-                if (!IsInBG(player) && !IsMaxLevel(player))
+                if (!IsInBG(player))
                 {
                     return GetDropGearRate(player);
                 }
@@ -1765,6 +1766,12 @@ namespace hardcore_module
                     return false;
 #endif
 
+                const uint32 playerLevel = player->GetLevel();
+                if (playerLevel < GetConfig()->levelDownMinLevel || playerLevel >= GetConfig()->levelDownMaxLevel)
+                {
+                    return false;
+                }
+
                 if (!GetConfig()->levelDownOnDungeons && IsInDungeon(player, this))
                 {
                     return false;
@@ -1775,7 +1782,7 @@ namespace hardcore_module
                     return false;
                 }
 
-                return !IsInBG(player) && !IsMaxLevel(player) && IsFairKill(player, killer);
+                return !IsInBG(player) && IsFairKill(player, killer);
             }
         }
 
@@ -1824,13 +1831,19 @@ namespace hardcore_module
         {
             if (player)
             {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
                 // Bots should never spawn a grave
                 if (!player->isRealPlayer())
                     return false;
-    #endif
+#endif
 
-                return !IsInBG(player) && !IsMaxLevel(player) && IsFairKill(player, killer);
+                const uint32 playerLevel = player->GetLevel();
+                if (playerLevel < GetConfig()->dropMinLevel || playerLevel >= GetConfig()->dropMaxLevel)
+                {
+                    return false;
+                }
+
+                return !IsInBG(player) && IsFairKill(player, killer);
             }
         }
 

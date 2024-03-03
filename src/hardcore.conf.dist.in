@@ -84,6 +84,22 @@
 #       Default: 1 (Enabled)
 #       		 0 (Disabled)
 #
+#   Hardcore.LevelDownMinLevel
+#       The player with less level than this won't level down on death
+#       Default: 1
+#
+#   Hardcore.LevelDownMaxLevel
+#       The player with higher level than this won't level down on death
+#       Default: (Expansion max level)
+#
+#   Hardcore.DropMinLevel
+#       The player with less level than this won't drop loot on death
+#       Default: 1
+#
+#   Hardcore.DropMaxLevel
+#       The player with higher level than this won't drop loot on death
+#       Default: (Expansion max level)
+#
 #   COMMANDS
 #	.hardcore reset
 #		Resets the state of the hardcore mod (loot and graves). Recommended to delete WDB folder and server reset after this
