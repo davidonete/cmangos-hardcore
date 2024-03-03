@@ -11,7 +11,7 @@ namespace hardcore_module
 {
     bool IsMaxLevel(Player* player)
     {
-        return player && player->GetLevel() >= 60 + (10 * EXPANSION);
+        return player && player->GetLevel() >= sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL);
     }
 
     bool IsInBG(Player* player)
@@ -23,7 +23,7 @@ namespace hardcore_module
 #endif
     }
 
-    bool IsInDungeon(Player* player, HardcoreModule* module)
+    bool IsInRaid(Player* player, HardcoreModule* module)
     {
         if (player && player->IsInWorld())
         {
@@ -31,7 +31,7 @@ namespace hardcore_module
             {
                 if (const Map* map = player->GetMap())
                 {
-                    return map->IsDungeon() || map->IsRaid();
+                    return map->IsRaid();
                 }
             }
             else
@@ -42,7 +42,35 @@ namespace hardcore_module
                 {
                     if (const Map* map = killer->GetMap())
                     {
-                        return map->IsDungeon() || map->IsRaid();
+                        return map->IsRaid();
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    bool IsInDungeon(Player* player, HardcoreModule* module)
+    {
+        if (player && player->IsInWorld())
+        {
+            if (!player->IsBeingTeleported())
+            {
+                if (const Map* map = player->GetMap())
+                {
+                    return map->IsDungeon();
+                }
+            }
+            else
+            {
+                // Try to get the map from the killer
+                Unit* killer = module->GetKiller(player);
+                if (killer)
+                {
+                    if (const Map* map = killer->GetMap())
+                    {
+                        return map->IsDungeon();
                     }
                 }
             }
@@ -1617,7 +1645,7 @@ namespace hardcore_module
         {
             if (player)
             {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
                 // Only drop loot if a bot gets killed by a real player
                 if (!player->isRealPlayer())
                 {
@@ -1626,7 +1654,17 @@ namespace hardcore_module
                         return false;
                     }
                 }
-    #endif
+#endif
+
+                if (!GetConfig()->dropOnDungeons && IsInDungeon(player, this))
+                {
+                    return false;
+                }
+                
+                if (!GetConfig()->dropOnRaids && IsInRaid(player, this))
+                {
+                    return false;
+                }
 
                 return IsFairKill(player, killer) && !IsInBG(player) && (ShouldDropGear(player) || ShouldDropItems(player) || ShouldDropMoney(player));
             }
@@ -1708,7 +1746,7 @@ namespace hardcore_module
                     return false;
     #endif
 
-                return !IsInBG(player) && !IsInDungeon(player, this);
+                return !IsInBG(player) && !IsInDungeon(player, this) && !IsInRaid(player, this);
             }
         }
 
@@ -1721,11 +1759,21 @@ namespace hardcore_module
         {
             if (player && GetConfig()->levelDownPct > 0.0f)
             {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
                 // Bots should never level down
                 if (!player->isRealPlayer())
                     return false;
-    #endif
+#endif
+
+                if (!GetConfig()->levelDownOnDungeons && IsInDungeon(player, this))
+                {
+                    return false;
+                }
+
+                if (!GetConfig()->levelDownOnDungeons && IsInRaid(player, this))
+                {
+                    return false;
+                }
 
                 return !IsInBG(player) && !IsMaxLevel(player) && IsFairKill(player, killer);
             }

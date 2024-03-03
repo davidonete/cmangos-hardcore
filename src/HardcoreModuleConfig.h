@@ -25,4 +25,8 @@ public:
     bool reviveOnGraveyard;
     float levelDownPct;
     uint32 maxDroppedLoot;
+    bool dropOnDungeons;
+    bool dropOnRaids;
+    bool levelDownOnDungeons;
+    bool levelDownOnRaids;
 };

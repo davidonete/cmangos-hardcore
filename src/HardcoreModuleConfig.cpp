@@ -19,6 +19,10 @@ HardcoreModuleConfig::HardcoreModuleConfig()
 , reviveOnGraveyard(false)
 , levelDownPct(0.0f)
 , maxDroppedLoot(0U)
+, dropOnDungeons(false)
+, dropOnRaids(false)
+, levelDownOnDungeons(false)
+, levelDownOnRaids(false)
 {
 
 }
@@ -42,5 +46,9 @@ bool HardcoreModuleConfig::OnLoad()
     reviveOnGraveyard = config.GetBoolDefault("Hardcore.ReviveOnGraveyard", false);
     levelDownPct = config.GetFloatDefault("Hardcore.LevelDown", 0.0f);
     maxDroppedLoot = config.GetIntDefault("Hardcore.MaxPlayerLoot", 0U);
+    dropOnDungeons = config.GetBoolDefault("Hardcore.DropOnDungeons", false);
+    dropOnRaids = config.GetBoolDefault("Hardcore.DropOnRaids", false);
+    levelDownOnDungeons = config.GetBoolDefault("Hardcore.LevelDownOnDungeons", false);
+    levelDownOnRaids = config.GetBoolDefault("Hardcore.LevelDownOnRaids", false);
     return true;
 }

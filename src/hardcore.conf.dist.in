@@ -64,8 +64,27 @@
 #   Hardcore.MaxPlayerLoot
 #       The amount of loot droped after death allowed. E.g If the player died 3 times and this value is set to 2,  the game will spawn a new loot and the oldest spawned loot will get deleted
 #
-#   COMMANDS
+#   Hardcore.DropOnDungeons
+#       If the player should drop items/gear/money when dying inside a dungeon
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
 #
+#   Hardcore.DropOnRaids
+#       If the player should drop items/gear/money when dying inside a raid
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.LevelDownOnDungeons
+#       If the player should level down when dying inside a dungeon
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.LevelDownOnRaids
+#       If the player should level down when dying inside a raid
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   COMMANDS
 #	.hardcore reset
 #		Resets the state of the hardcore mod (loot and graves). Recommended to delete WDB folder and server reset after this
 #
@@ -92,3 +111,7 @@ Hardcore.ReviveDisabled = 0
 Hardcore.ReviveOnGraveyard = 0
 Hardcore.LevelDown = 0
 Hardcore.MaxPlayerLoot = 99
+Hardcore.DropOnDungeons = 1
+Hardcore.DropOnRaids = 1
+Hardcore.LevelDownOnDungeons = 1
+Hardcore.LevelDownOnRaids = 1
