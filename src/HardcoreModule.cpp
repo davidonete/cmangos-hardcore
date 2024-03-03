@@ -1843,6 +1843,16 @@ namespace hardcore_module
                     return false;
                 }
 
+                if (!GetConfig()->dropOnDungeons && IsInDungeon(player, this))
+                {
+                    return false;
+                }
+
+                if (!GetConfig()->dropOnRaids && IsInRaid(player, this))
+                {
+                    return false;
+                }
+
                 return !IsInBG(player) && IsFairKill(player, killer);
             }
         }
