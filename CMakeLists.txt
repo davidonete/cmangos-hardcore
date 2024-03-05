@@ -43,9 +43,7 @@ endif()
 # Define ENABLE_PLAYERBOTS if need
 if (BUILD_PLAYERBOTS)
 	include_directories(${CMAKE_SOURCE_DIR}/src/modules/playerbots)
-	if (EXPANSION STREQUAL 2)
-		include_directories(${CMAKE_SOURCE_DIR}/dep/g3dlite)
-	endif()
+	include_directories(${CMAKE_SOURCE_DIR}/dep/g3dlite)
 	add_definitions(-DENABLE_PLAYERBOTS)
 endif()
 
