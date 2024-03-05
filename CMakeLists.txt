@@ -26,18 +26,7 @@ file(GLOB hardcore_source ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_
 set(LIBRARY_SRCS ${hardcore_source})
 
 # Define ENABLE_PLAYERBOTS if need
-if (BUILD_PLAYERBOTS OR BUILD_IKE3_BOTS)
-	include_directories(
-		${CMAKE_SOURCE_DIR}/dep/g3dlite
-		${CMAKE_SOURCE_DIR}/src/modules/Bots/playerbot
-		${CMAKE_SOURCE_DIR}/src/modules/Bots/ahbot
-	)
-
-	# delete this once bots are merged into cmangos
-	if (BUILD_PLAYERBOTS)
-		add_definitions(-DENABLE_MANGOSBOTS)
-	endif()
-
+if (BUILD_PLAYERBOTS)
 	add_definitions(-DENABLE_PLAYERBOTS)
 endif()
 
