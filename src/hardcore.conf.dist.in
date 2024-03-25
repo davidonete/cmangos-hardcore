@@ -131,3 +131,7 @@ Hardcore.DropOnDungeons = 1
 Hardcore.DropOnRaids = 1
 Hardcore.LevelDownOnDungeons = 1
 Hardcore.LevelDownOnRaids = 1
+Hardcore.LevelDownMinLevel = 1
+#Hardcore.LevelDownMaxLevel = 60
+Hardcore.DropMinLevel = 1
+#Hardcore.DropMaxLevel = 60

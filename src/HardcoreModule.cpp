@@ -1052,7 +1052,7 @@ namespace hardcore_module
     #ifdef ENABLE_PLAYERBOTS
             // Check if the player is not a bot
             Config config;
-            if (config.SetSource(SYSCONFDIR"aiplayerbot.conf"))
+            if (config.SetSource(SYSCONFDIR"aiplayerbot.conf", ""))
             {
                 std::string botPrefix = config.GetStringDefault("AiPlayerbot.RandomBotAccountPrefix", "rndbot");
                 std::transform(botPrefix.begin(), botPrefix.end(), botPrefix.begin(), ::toupper);
@@ -1266,7 +1266,7 @@ namespace hardcore_module
     #ifdef ENABLE_PLAYERBOTS
                     // Check if the player is not a bot
                     Config config;
-                    if (config.SetSource(SYSCONFDIR"aiplayerbot.conf"))
+                    if (config.SetSource(SYSCONFDIR"aiplayerbot.conf", ""))
                     {
                         std::string botPrefix = config.GetStringDefault("AiPlayerbot.RandomBotAccountPrefix", "rndbot");
                         std::transform(botPrefix.begin(), botPrefix.end(), botPrefix.begin(), ::toupper);
