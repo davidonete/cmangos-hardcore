@@ -1,7 +1,7 @@
 #ifndef MANGOS_HARDCORE_MODULE_H
 #define MANGOS_HARDCORE_MODULE_H
 
-#include "../../modules/src/Module.h"
+#include "Module.h"
 #include "HardcoreModuleConfig.h"
 
 #include "Entities/ObjectGuid.h"
