@@ -233,8 +233,5 @@ namespace hardcore_module
         std::map<uint32, HardcorePlayerGrave> m_playerGraves;
         std::map<uint32, ObjectGuid> m_lastPlayerDeaths;
     };
-
-    static HardcoreModule hardcoreModule;
-
 }
 #endif
