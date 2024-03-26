@@ -1,7 +1,7 @@
 #pragma once
-#include "ModuleConfig.h"
+#include "CmangosModuleConfig.h"
 
-class HardcoreModuleConfig : public ModuleConfig
+class HardcoreModuleConfig : public CmangosModuleConfig
 {
 public:
     HardcoreModuleConfig();

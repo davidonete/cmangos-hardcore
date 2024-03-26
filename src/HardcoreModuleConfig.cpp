@@ -2,7 +2,7 @@
 #include "Server/DBCEnums.h"
 
 HardcoreModuleConfig::HardcoreModuleConfig()
-: ModuleConfig("hardcore.conf")
+: CmangosModuleConfig("hardcore.conf")
 , enabled(false)
 , spawnGrave(false)
 , graveGameObjectId(0U)
