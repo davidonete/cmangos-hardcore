@@ -1,7 +1,7 @@
-#ifndef MANGOS_HARDCORE_MODULE_H
-#define MANGOS_HARDCORE_MODULE_H
+#ifndef CMANGOS_MODULE_HARDCORE_H
+#define CMANGOS_MODULE_HARDCORE_H
 
-#include "CmangosModule.h"
+#include "Module.h"
 #include "HardcoreModuleConfig.h"
 
 #include "Entities/ObjectGuid.h"
@@ -11,7 +11,7 @@
 #include <string>
 #include <map>
 
-namespace hardcore_module
+namespace cmangos_module
 {
     class HardcoreModule;
 
@@ -153,14 +153,13 @@ namespace hardcore_module
         HardcoreModule* m_module;
     };
 
-    class HardcoreModule : public CmangosModule
+    class HardcoreModule : public Module
     {
         friend HardcorePlayerLoot;
 
     public:
-        HardcoreModule() : CmangosModule("Hardcore") {}
-        HardcoreModuleConfig* CreateConfig() override { return new HardcoreModuleConfig(); }
-        const HardcoreModuleConfig* GetConfig() const override { return (HardcoreModuleConfig*)GetConfigInternal(); }
+        HardcoreModule();
+        const HardcoreModuleConfig* GetConfig() const override;
 
         void OnWorldPreInitialized() override;
         void OnInitialize() override;

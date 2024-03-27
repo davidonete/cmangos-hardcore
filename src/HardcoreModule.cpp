@@ -7,7 +7,7 @@
 #include "SystemConfig.h"
 #include "World/World.h"
 
-namespace hardcore_module
+namespace cmangos_module
 {
     bool IsInBG(Player* player)
     {
@@ -1104,6 +1104,17 @@ namespace hardcore_module
     {
         // Prevent resurrecting
         return !CanRevive(player);
+    }
+
+    HardcoreModule::HardcoreModule()
+    : Module("Hardcore", new HardcoreModuleConfig())
+    {
+        
+    }
+
+    const HardcoreModuleConfig* HardcoreModule::GetConfig() const
+    {
+        return (HardcoreModuleConfig*)Module::GetConfig();
     }
 
     void HardcoreModule::OnWorldPreInitialized()
