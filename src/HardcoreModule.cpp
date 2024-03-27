@@ -1965,7 +1965,7 @@ namespace cmangos_module
             if (newXPpct > 0.0)
             {
                 curXP = player->GetUInt32Value(PLAYER_XP);
-                totalLevelXP = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
+                totalLevelXP = sObjectMgr.GetXPForLevel(newLevel);
 
                 const uint32 levelXP = (uint32)(totalLevelXP * newXPpct);
                 player->SetUInt32Value(PLAYER_XP, levelXP);
