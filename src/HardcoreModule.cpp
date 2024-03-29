@@ -9,15 +9,6 @@
 
 namespace cmangos_module
 {
-    bool IsInBG(Player* player)
-    {
-#if EXPANSION >= 1
-        return player && (player->InBattleGround() || player->InArena());
-#else
-        return player->InBattleGround();
-#endif
-    }
-
     bool IsInRaid(Player* player, HardcoreModule* module)
     {
         if (player && player->IsInWorld())
@@ -1678,7 +1669,7 @@ namespace cmangos_module
                     return false;
                 }
 
-                return IsFairKill(player, killer) && !IsInBG(player) && (ShouldDropGear(player) || ShouldDropItems(player) || ShouldDropMoney(player));
+                return IsFairKill(player, killer) && !helper::InPvpMap(player) && (ShouldDropGear(player) || ShouldDropItems(player) || ShouldDropMoney(player));
             }
         }
 
@@ -1689,7 +1680,7 @@ namespace cmangos_module
     {
         if (GetConfig()->enabled)
         {
-            if (!IsInBG(player))
+            if (!helper::InPvpMap(player))
             {
                 return GetDropMoneyRate(player);
             }
@@ -1702,7 +1693,7 @@ namespace cmangos_module
     {
         if (GetConfig()->enabled)
         {
-            if (!IsInBG(player))
+            if (!helper::InPvpMap(player))
             {
                 return GetDropItemsRate(player);
             }
@@ -1717,7 +1708,7 @@ namespace cmangos_module
         {
             if (player)
             {
-                if (!IsInBG(player))
+                if (!helper::InPvpMap(player))
                 {
                     return GetDropGearRate(player);
                 }
@@ -1739,7 +1730,7 @@ namespace cmangos_module
                     return true;
     #endif
 
-                return IsInBG(player);
+                return helper::InPvpMap(player);
             }
         }
 
@@ -1758,7 +1749,7 @@ namespace cmangos_module
                     return false;
     #endif
 
-                return !IsInBG(player) && !IsInDungeon(player, this) && !IsInRaid(player, this);
+                return !helper::InPvpMap(player) && !IsInDungeon(player, this) && !IsInRaid(player, this);
             }
         }
 
@@ -1793,7 +1784,7 @@ namespace cmangos_module
                     return false;
                 }
 
-                return !IsInBG(player) && IsFairKill(player, killer);
+                return !helper::InPvpMap(player) && IsFairKill(player, killer);
             }
         }
 
@@ -1864,7 +1855,7 @@ namespace cmangos_module
                     return false;
                 }
 
-                return !IsInBG(player) && IsFairKill(player, killer);
+                return !helper::InPvpMap(player) && IsFairKill(player, killer);
             }
         }
 
