@@ -264,7 +264,7 @@ namespace cmangos_module
     #if EXPANSION == 0
                         pGameObject->SaveToDB(map->GetId());
     #else
-                        pGameObject->SaveToDB();
+                        pGameObject->SaveToDB(map->GetId(), pGameObject->GetPhaseMask());
     #endif
                         if (pGameObject->LoadFromDB(goLowGUID, map, goLowGUID, 0))
                         {
@@ -780,7 +780,7 @@ namespace cmangos_module
     #if EXPANSION == 0
                         pGameObject->SaveToDB(map->GetId());
     #else
-                        pGameObject->SaveToDB();
+                        pGameObject->SaveToDB(map->GetId(), pGameObject->GetPhaseMask());
     #endif
                         if (pGameObject->LoadFromDB(goLowGUID, map, goLowGUID, 0))
                         {
