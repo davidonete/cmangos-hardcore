@@ -261,11 +261,17 @@ namespace cmangos_module
     #endif
                     {
                         // Save the chest to the database and load game object data
-    #if EXPANSION == 0
-                        pGameObject->SaveToDB(map->GetId());
-    #else
-                        pGameObject->SaveToDB(map->GetId(), pGameObject->GetPhaseMask());
-    #endif
+#if EXPANSION == 0
+                    pGameObject->SaveToDB(map->GetId());
+#elif EXPANSION == 1
+                    pGameObject->SaveToDB(map->GetId(), pGameObject->GetPhaseMask());
+#elif EXPANSION == 2
+                    GameObjectData const* data = sObjectMgr.GetGOData(pGameObject->GetDbGuid());
+                    if (data)
+                    {
+                        pGameObject->SaveToDB(map->GetId(), data->spawnMask, pGameObject->GetPhaseMask());
+                    }
+#endif
                         if (pGameObject->LoadFromDB(goLowGUID, map, goLowGUID, 0))
                         {
                             // Set the initial state of the chest to be ready to be looted
@@ -777,11 +783,17 @@ namespace cmangos_module
     #endif
                     {
                         // Save the chest to the database and load game object data
-    #if EXPANSION == 0
-                        pGameObject->SaveToDB(map->GetId());
-    #else
-                        pGameObject->SaveToDB(map->GetId(), pGameObject->GetPhaseMask());
-    #endif
+#if EXPANSION == 0
+                    pGameObject->SaveToDB(map->GetId());
+#elif EXPANSION == 1
+                    pGameObject->SaveToDB(map->GetId(), pGameObject->GetPhaseMask());
+#elif EXPANSION == 2
+                    GameObjectData const* data = sObjectMgr.GetGOData(pGameObject->GetDbGuid());
+                    if (data)
+                    {
+                        pGameObject->SaveToDB(map->GetId(), data->spawnMask, pGameObject->GetPhaseMask());
+                    }
+#endif
                         if (pGameObject->LoadFromDB(goLowGUID, map, goLowGUID, 0))
                         {
                             // Spawn the loot into the world
