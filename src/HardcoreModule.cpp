@@ -539,9 +539,9 @@ namespace cmangos_module
                         items.erase(items.begin() + randIdx);
 
                         // Remove the item from the player (except for bots)
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
                         if (player->isRealPlayer())
-    #endif
+#endif
                         {
                             for (const ItemSlot& slot : item.m_slots)
                             {
@@ -619,9 +619,9 @@ namespace cmangos_module
                     dropMoney = playerMoney * moneyDropRate;
 
                     // Remove the money from the player (except for bots)
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
                     if (player->isRealPlayer())
-    #endif
+#endif
                     {
                         player->SetMoney(playerMoney - dropMoney);
                     }
@@ -632,11 +632,11 @@ namespace cmangos_module
                 const float playerY = player->GetPositionY();
                 const float playerZ = player->GetPositionZ();
                 const uint32 mapId = player->GetMapId();
-    #if EXPANSION == 2
+#if EXPANSION == 2
                 const uint32 phaseMask = player->GetPhaseMask();
-    #else
+#else
                 const uint32 phaseMask = 0;
-    #endif
+#endif
 
                 const float angleIncrement = (2 * M_PI) / gameObjectsLoot.size();
                 static const float radius = 3.0f;
@@ -776,23 +776,23 @@ namespace cmangos_module
                 if (map)
                 {
                     GameObject* pGameObject = GameObject::CreateGameObject(gameObjectEntry);
-    #if EXPANSION == 2
+#if EXPANSION == 2
                     if (pGameObject->Create(0, goLowGUID, gameObjectEntry, map, m_phaseMask, m_positionX, m_positionY, m_positionZ, m_orientation))
-    #else
+#else
                     if (pGameObject->Create(0, goLowGUID, gameObjectEntry, map, m_positionX, m_positionY, m_positionZ, m_orientation))
-    #endif
+#endif
                     {
                         // Save the chest to the database and load game object data
 #if EXPANSION == 0
-                    pGameObject->SaveToDB(map->GetId());
+                        pGameObject->SaveToDB(map->GetId());
 #elif EXPANSION == 1
-                    pGameObject->SaveToDB(map->GetId(), pGameObject->GetPhaseMask());
+                        pGameObject->SaveToDB(map->GetId(), pGameObject->GetPhaseMask());
 #elif EXPANSION == 2
-                    GameObjectData const* data = sObjectMgr.GetGOData(pGameObject->GetDbGuid());
-                    if (data)
-                    {
-                        pGameObject->SaveToDB(map->GetId(), data->spawnMask, pGameObject->GetPhaseMask());
-                    }
+                        GameObjectData const* data = sObjectMgr.GetGOData(pGameObject->GetDbGuid());
+                        if (data)
+                        {
+                            pGameObject->SaveToDB(map->GetId(), data->spawnMask, pGameObject->GetPhaseMask());
+                        }
 #endif
                         if (pGameObject->LoadFromDB(goLowGUID, map, goLowGUID, 0))
                         {
@@ -1083,23 +1083,29 @@ namespace cmangos_module
     void HardcoreModule::OnDeleteFromDB(uint32 playerId)
     {
         // Delete player grave
-        auto graveIt = m_playerGraves.find(playerId);
-        if (graveIt != m_playerGraves.end())
+        if (GetConfig()->removeGraveOnCharacterDeleted)
         {
-            graveIt->second.Destroy();
-            m_playerGraves.erase(graveIt);
+            auto graveIt = m_playerGraves.find(playerId);
+            if (graveIt != m_playerGraves.end())
+            {
+                graveIt->second.Destroy();
+                m_playerGraves.erase(graveIt);
+            }
         }
 
         // Delete player loot
-        auto playerLootIt = m_playersLoot.find(playerId);
-        if (playerLootIt != m_playersLoot.end())
+        if (GetConfig()->removeLootOnCharacterDeleted)
         {
-            for (auto lootIt = playerLootIt->second.begin(); lootIt != playerLootIt->second.end(); ++lootIt)
+            auto playerLootIt = m_playersLoot.find(playerId);
+            if (playerLootIt != m_playersLoot.end())
             {
-                lootIt->second.Destroy();
-            }
+                for (auto lootIt = playerLootIt->second.begin(); lootIt != playerLootIt->second.end(); ++lootIt)
+                {
+                    lootIt->second.Destroy();
+                }
 
-            m_playersLoot.erase(playerLootIt);
+                m_playersLoot.erase(playerLootIt);
+            }
         }
     }
 

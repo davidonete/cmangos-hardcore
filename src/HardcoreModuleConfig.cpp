@@ -9,6 +9,7 @@ namespace cmangos_module
     , spawnGrave(false)
     , graveGameObjectId(0U)
     , graveMessage("")
+    , removeGraveOnCharacterDeleted(true)
     , dropGearPct(0.0f)
     , dropItemsPct(0.0f)
     , dropMoneyPct(0.0f)
@@ -17,6 +18,7 @@ namespace cmangos_module
     , botDropItemsPct(0.0f)
     , botDropMoneyPct(0.0f)
     #endif
+    , removeLootOnCharacterDeleted(true)
     , lootGameObjectId(0U)
     , reviveDisabled(false)
     , reviveOnGraveyard(false)
@@ -40,6 +42,7 @@ namespace cmangos_module
         spawnGrave = config.GetBoolDefault("Hardcore.SpawnGrave", false);
         graveGameObjectId = config.GetIntDefault("Hardcore.GraveGameObjectID", 0U);
         graveMessage = config.GetStringDefault("Hardcore.GraveMessage", "Here lies <PlayerName>");
+        removeGraveOnCharacterDeleted = config.GetBoolDefault("Hardcore.RemoveGravesOnCharacterDeleted", true);
         dropGearPct = config.GetFloatDefault("Hardcore.DropGear", 0.0f);
         dropItemsPct = config.GetFloatDefault("Hardcore.DropItems", 0.0f);
         dropMoneyPct = config.GetFloatDefault("Hardcore.DropMoney", 0.0f);
@@ -48,6 +51,7 @@ namespace cmangos_module
         botDropItemsPct = config.GetFloatDefault("Hardcore.BotDropItems", 0.0f);
         botDropMoneyPct = config.GetFloatDefault("Hardcore.BotDropMoney", 0.0f);
     #endif
+        removeLootOnCharacterDeleted = config.GetBoolDefault("Hardcore.RemoveLootOnCharacterDeleted", true);
         lootGameObjectId = config.GetIntDefault("Hardcore.LootGameObjectID", 0U);
         reviveDisabled = config.GetBoolDefault("Hardcore.ReviveDisabled", false);
         reviveOnGraveyard = config.GetBoolDefault("Hardcore.ReviveOnGraveyard", false);

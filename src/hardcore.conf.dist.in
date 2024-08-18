@@ -19,6 +19,11 @@
 #       The message on the gravestone. Separate with | for having multiple messages randomly selected
 #       Default: "Here lies <PlayerName>"
 #
+#   Hardcore.RemoveGravesOnCharacterDeleted
+#       If all gravestones of a character should get removed when the character gets deleted
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
 #   Hardcore.DropGear
 #       If the player drops his gear after dying. A percentage of gear to drop from 0.0 to 1.0, 0 being no drop, 0.5 half drops and 1 all drops
 #       Default: 0 (No drop)
@@ -42,6 +47,11 @@
 #   Hardcore.BotDropMoney
 #       If the player bot drops his money after dying. A percentage of money to drop from 0.0 to 1.0, 0 being no drop, 0.5 half drops and 1 all drops
 #       Default: 0 (No drop)
+#
+#   Hardcore.RemoveLootOnCharacterDeleted
+#       If all dropped loot of a character should get removed when the character gets deleted
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
 #
 #   Hardcore.LootGameObjectID
 #       The game object to use for the loot. MUST BE TYPE CHEST(3) (http://wowadd.blogspot.com/2007/12/game-master-game-object-list.html)
@@ -116,12 +126,14 @@ Hardcore.Enable = 0
 Hardcore.SpawnGrave = 0
 Hardcore.GraveGameObjectID = 61
 Hardcore.GraveMessage = "Shit happens. <PlayerName> | Well, this sucks. <PlayerName> | It is really dark down here. <PlayerName> | Finally some peace and quiet. <PlayerName> | Shhh! I am sleeping. <PlayerName> | At least we had fun. <PlayerName> | <PlayerName> was so brave until he forgot his parachute."
+Hardcore.RemoveGravesOnCharacterDeleted = 1
 Hardcore.DropGear = 0
 Hardcore.DropItems = 0
 Hardcore.DropMoney = 0
 Hardcore.BotDropGear = 0
 Hardcore.BotDropItems = 0
 Hardcore.BotDropMoney = 0
+Hardcore.RemoveLootOnCharacterDeleted = 1
 Hardcore.LootGameObjectID = 2850
 Hardcore.ReviveDisabled = 0
 Hardcore.ReviveOnGraveyard = 0

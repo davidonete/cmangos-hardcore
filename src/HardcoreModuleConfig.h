@@ -14,6 +14,7 @@ namespace cmangos_module
         bool spawnGrave;
         uint32 graveGameObjectId;
         std::string graveMessage;
+        bool removeGraveOnCharacterDeleted;
         float dropGearPct;
         float dropItemsPct;
         float dropMoneyPct;
@@ -22,6 +23,7 @@ namespace cmangos_module
         float botDropItemsPct;
         float botDropMoneyPct;
     #endif
+        bool removeLootOnCharacterDeleted;
         uint32 lootGameObjectId;
         bool reviveDisabled;
         bool reviveOnGraveyard;
