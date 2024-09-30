@@ -1052,7 +1052,7 @@ namespace cmangos_module
         {
             const uint32 playerId = player->GetObjectGuid().GetCounter();
 
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
             // Check if the player is not a bot
             Config config;
             if (config.SetSource(SYSCONFDIR"aiplayerbot.conf", ""))
@@ -1067,10 +1067,12 @@ namespace cmangos_module
                     Field* fields = result->Fetch();
                     const std::string accountName = fields[0].GetCppString();
                     if (accountName.find(botPrefix) != std::string::npos)
+                    {
                         return;
+                    }
                 }
             }
-    #endif
+#endif
 
             // Check if the player grave exists
             if (m_playerGraves.find(playerId) == m_playerGraves.end())
@@ -1278,12 +1280,13 @@ namespace cmangos_module
             {
                 do
                 {
+                    bool canGenerateGrave = true;
                     Field* fields = result->Fetch();
                     const uint32 playerId = fields[0].GetUInt32();
                     const uint32 playerAccountId = fields[1].GetUInt32();
                     const std::string playerName = fields[2].GetCppString();
                 
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
                     // Check if the player is not a bot
                     Config config;
                     if (config.SetSource(SYSCONFDIR"aiplayerbot.conf", ""))
@@ -1297,13 +1300,15 @@ namespace cmangos_module
                             Field* fields = result->Fetch();
                             const std::string accountName = fields[0].GetCppString();
                             if (accountName.find(botPrefix) != std::string::npos)
-                                return;
+                            {
+                                canGenerateGrave = false;
+                            }
                         }
                     }
-    #endif
+#endif
 
                     // Check if the player grave exists
-                    if (m_playerGraves.find(playerId) == m_playerGraves.end())
+                    if (canGenerateGrave && m_playerGraves.find(playerId) == m_playerGraves.end())
                     {
                         m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName, this)));
                     }
