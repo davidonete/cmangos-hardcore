@@ -217,7 +217,7 @@ namespace cmangos_module
         }
 
         // Create game object in custom_hardcore_loot_gameobjects
-        CharacterDatabase.PExecute("INSERT INTO custom_hardcore_loot_gameobjects (id, player, loot_id, loot_table, money, position_x, position_y, position_z, orientation, map, phase_mask) VALUES ('%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d', '%d')",
+        CharacterDatabase.DirectPExecute("INSERT INTO custom_hardcore_loot_gameobjects (id, player, loot_id, loot_table, money, position_x, position_y, position_z, orientation, map, phase_mask) VALUES ('%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d', '%d')",
             newGOId,
             playerId,
             lootId,
@@ -254,11 +254,11 @@ namespace cmangos_module
                 if (map)
                 {
                     GameObject* pGameObject = GameObject::CreateGameObject(lootGOEntry);
-    #if EXPANSION == 2
+#if EXPANSION == 2
                     if (pGameObject->Create(0, goLowGUID, lootGOEntry, map, m_phaseMask, m_positionX, m_positionY, m_positionZ, m_orientation))
-    #else
+#else
                     if (pGameObject->Create(0, goLowGUID, lootGOEntry, map, m_positionX, m_positionY, m_positionZ, m_orientation))
-    #endif
+#endif
                     {
                         // Save the chest to the database and load game object data
 #if EXPANSION == 0
@@ -975,11 +975,11 @@ namespace cmangos_module
             float z = player->GetPositionZ();
             const float o = player->GetOrientation();
             const uint32 mapId = player->GetMapId();
-    #if EXPANSION == 2
+#if EXPANSION == 2
             const uint32 phaseMask = player->GetPhaseMask();
-    #else
+#else
             const uint32 phaseMask = 0;
-    #endif
+#endif
 
             // Check if the height coordinate is valid
             player->UpdateAllowedPositionZ(x, y, z);
@@ -1616,11 +1616,11 @@ namespace cmangos_module
                             // Set the enchantments
                             if (!hardcoreItem->m_enchantments.empty())
                             {
-    #if EXPANSION == 0
+#if EXPANSION == 0
                                 item->_LoadIntoDataField(hardcoreItem->m_enchantments.c_str(), ITEM_FIELD_ENCHANTMENT, MAX_ENCHANTMENT_SLOT * MAX_ENCHANTMENT_OFFSET);
-    #else
+#else
                                 item->_LoadIntoDataField(hardcoreItem->m_enchantments.c_str(), ITEM_FIELD_ENCHANTMENT_1_1, MAX_ENCHANTMENT_SLOT * MAX_ENCHANTMENT_OFFSET);
-    #endif
+#endif
                             }
 
                             // Set the durability
@@ -1747,11 +1747,11 @@ namespace cmangos_module
         {
             if (player && GetConfig()->reviveDisabled)
             {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
                 // Bots always should revive
                 if (!player->isRealPlayer())
                     return true;
-    #endif
+#endif
 
                 return helper::InPvpMap(player);
             }
@@ -1766,11 +1766,11 @@ namespace cmangos_module
         {
             if (player && CanRevive(player) && GetConfig()->reviveOnGraveyard)
             {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
                 // Bots always should revive using ghosts
                 if (!player->isRealPlayer())
                     return false;
-    #endif
+#endif
 
                 return !helper::InPvpMap(player) && !IsInDungeon(player, this) && !IsInRaid(player, this);
             }
@@ -1822,32 +1822,32 @@ namespace cmangos_module
 
     float HardcoreModule::GetDropMoneyRate(Player* player) const
     {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
         const bool isBot = player ? !player->isRealPlayer() : false;
         return isBot ? GetConfig()->botDropMoneyPct : GetConfig()->dropMoneyPct;
-    #else
+#else
         return GetConfig()->dropMoneyPct;
-    #endif
+#endif
     }
 
     float HardcoreModule::GetDropItemsRate(Player* player) const
     {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
         const bool isBot = player ? !player->isRealPlayer() : false;
         return isBot ? GetConfig()->botDropItemsPct : GetConfig()->dropItemsPct;
-    #else
+#else
         return GetConfig()->dropItemsPct;
-    #endif
+#endif
     }
 
     float HardcoreModule::GetDropGearRate(Player* player) const
     {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
         const bool isBot = player ? !player->isRealPlayer() : false;
         return isBot ? GetConfig()->botDropGearPct : GetConfig()->dropGearPct;
-    #else
+#else
         return GetConfig()->dropGearPct;
-    #endif
+#endif
     }
 
     bool HardcoreModule::ShouldSpawnGrave(Player* player, Unit* killer /*= nullptr*/)
@@ -1992,11 +1992,11 @@ namespace cmangos_module
         Unit* killer = nullptr;
         if (player)
         {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
             // Ignore bots
             if (!player->isRealPlayer())
                 return nullptr;
-    #endif
+#endif
 
             const uint32 playerGuid = player->GetObjectGuid().GetCounter();
             if (m_lastPlayerDeaths.find(playerGuid) != m_lastPlayerDeaths.end())
@@ -2013,11 +2013,11 @@ namespace cmangos_module
     {
         if (player)
         {
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
             // Ignore bots
             if (!player->isRealPlayer())
                 return;
-    #endif
+#endif
 
             const uint32 playerGuid = player->GetObjectGuid().GetCounter();
             const ObjectGuid killerGuid = killer ? killer->GetObjectGuid() : ObjectGuid();
@@ -2028,60 +2028,12 @@ namespace cmangos_module
     bool HardcoreModule::IsDropLootEnabled() const
     {
         return GetConfig()->dropGearPct > 0.0f || 
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
                GetConfig()->botDropGearPct > 0.0f ||
                GetConfig()->botDropItemsPct > 0.0f ||
                GetConfig()->botDropMoneyPct > 0.0f ||
-    #endif
+#endif
                GetConfig()->dropItemsPct > 0.0f || 
                GetConfig()->dropMoneyPct > 0.0f;
     }
-
-    /*
-    bool ChatHandler::HandleHardcoreCommand(char* args)
-    {
-        std::string command = args;
-        char* cmd = strtok((char*)args, " ");
-        char* charname = strtok(NULL, " ");
-        if (cmd)
-        {
-            if (!strcmp(cmd, "reset"))
-            {
-                sHardcoreModule.RemoveAllLoot();
-                sHardcoreModule.RemoveAllGraves();
-            }
-            else if (!strcmp(cmd, "resetgraves"))
-            {
-                sHardcoreModule.RemoveAllGraves();
-            }
-            else if (!strcmp(cmd, "resetloot"))
-            {
-                sHardcoreModule.RemoveAllLoot();
-            }
-            else if (!strcmp(cmd, "spawnloot"))
-            {
-                if (m_session && m_session->GetPlayer())
-                {
-                    sHardcoreModule.CreateLoot(m_session->GetPlayer(), nullptr);
-                }
-            }
-            else if (!strcmp(cmd, "spawngrave"))
-            {
-                if (m_session && m_session->GetPlayer())
-                {
-                    sHardcoreModule.CreateGrave(m_session->GetPlayer());
-                }
-            }
-            else if (!strcmp(cmd, "leveldown"))
-            {
-                if (m_session && m_session->GetPlayer())
-                {
-                    sHardcoreModule.LevelDown(m_session->GetPlayer());
-                }
-            }
-        }
-
-        return true;
-    }
-    */
 }
