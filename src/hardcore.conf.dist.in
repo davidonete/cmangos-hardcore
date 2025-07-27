@@ -115,6 +115,10 @@
 #       The player with higher level than this won't drop loot on death
 #       Default: (Expansion max level)
 #
+#   Hardcore.DisablePVP
+#       If the player can disable pvp during the hardcore challenge
+#       Default: 0
+#
 #   COMMANDS
 #	.hardcore reset
 #		Resets the state of the hardcore mod (loot and graves). Recommended to delete WDB folder and server reset after this
@@ -124,6 +128,15 @@
 #
 #	.hardcore resetgraves
 #		Removes all the graves spawned in the world (Recommended to delete WDB folder and server reset after this)
+#
+#	.hardcore revive true/false
+#		Enables/Disables the ability to revive the selected character
+#
+#	.hardcore droploot true/false
+#		Enables/Disables the option to drop loot on death for the selected character
+#
+#	.hardcore losexp true/false
+#		Enables/Disables the option to lose xp on death for the selected character
 #
 ###################################################################################################################
 
@@ -153,3 +166,4 @@ Hardcore.LevelDownMinLevel = 1
 #Hardcore.LevelDownMaxLevel = 60
 Hardcore.DropMinLevel = 1
 #Hardcore.DropMaxLevel = 60
+Hardcore.DisablePVP = 0

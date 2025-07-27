@@ -1275,28 +1275,28 @@ namespace cmangos_module
         HardcorePlayerConfig playerConfig(playerId);
         if (playerId > 0)
         {
-            // Player config
+            auto result = CharacterDatabase.PQuery("SELECT revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled FROM custom_hardcore_player_config WHERE id = '%d'", playerId);
+            if (result)
             {
-                auto result = CharacterDatabase.PQuery("SELECT revive_disabled, drop_loot_on_death, lose_xp_on_death FROM custom_hardcore_player_config WHERE id = '%d'", playerId);
-                if (result)
-                {
-                    Field* fields = result->Fetch();
-                    playerConfig.m_reviveDisabled = fields[0].GetBool();
-                    playerConfig.m_dropLootOnDeath = fields[1].GetBool();
-                    playerConfig.m_loseXPOnDeath = fields[2].GetBool();
-                }
-                else
-                {
-                    playerConfig.m_reviveDisabled = false;
-                    playerConfig.m_dropLootOnDeath = false;
-                    playerConfig.m_loseXPOnDeath = false;
+                Field* fields = result->Fetch();
+                playerConfig.m_reviveDisabled = fields[0].GetBool();
+                playerConfig.m_dropLootOnDeath = fields[1].GetBool();
+                playerConfig.m_loseXPOnDeath = fields[2].GetBool();
+                playerConfig.m_pvpDisabled = fields[3].GetBool();
+            }
+            else
+            {
+                playerConfig.m_reviveDisabled = false;
+                playerConfig.m_dropLootOnDeath = false;
+                playerConfig.m_loseXPOnDeath = false;
+                playerConfig.m_pvpDisabled = false;
 
-                    CharacterDatabase.PExecute("INSERT INTO custom_hardcore_player_config (id, revive_disabled, drop_loot_on_death, lose_xp_on_death) VALUES ('%d', '%d', '%d', '%d')",
-                        playerId,
-                        playerConfig.m_reviveDisabled ? 1 : 0,
-                        playerConfig.m_dropLootOnDeath ? 1 : 0,
-                        playerConfig.m_loseXPOnDeath ? 1 : 0);
-                }
+                CharacterDatabase.PExecute("INSERT INTO custom_hardcore_player_config (id, revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled) VALUES ('%d', '%d', '%d', '%d', '%d')",
+                    playerId,
+                    playerConfig.m_reviveDisabled ? 1 : 0,
+                    playerConfig.m_dropLootOnDeath ? 1 : 0,
+                    playerConfig.m_loseXPOnDeath ? 1 : 0,
+                    playerConfig.m_pvpDisabled ? 1 : 0);
             }
         }
 
@@ -1324,6 +1324,12 @@ namespace cmangos_module
     {
         m_loseXPOnDeath = enable;
         CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET lose_xp_on_death = '%d' WHERE id = '%d'", m_loseXPOnDeath ? 1 : 0, m_playerId);
+    }
+
+    void HardcorePlayerConfig::TogglePVPDisabled(bool enable)
+    {
+        m_pvpDisabled = enable;
+        CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET pvp_disabled = '%d' WHERE id = '%d'", m_pvpDisabled ? 1 : 0, m_playerId);
     }
 
     HardcoreModule::HardcoreModule()
@@ -1868,6 +1874,11 @@ namespace cmangos_module
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
                     }
 
+                    if (moduleConfig->disablePVP)
+                    {
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                    }
+
                     playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN, creature->GetObjectGuid());
                 }
                 else
@@ -2009,6 +2020,39 @@ namespace cmangos_module
                         return true;
                     }
 
+                    case HARDCORE_DIALOGUE_OPTION_DISABLE_PVP:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE + HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DISABLE_PVP, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_DISABLE_PVP:
+                    {
+                        playerMenu->ClearMenus();
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            playerConfig->TogglePVPDisabled(true);
+                        }
+
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DISABLE_PVP_CONFIRM, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_DECLINE + HARDCORE_DIALOGUE_OPTION_DISABLE_PVP:
+                    {
+                        playerMenu->ClearMenus();
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            playerConfig->TogglePVPDisabled(false);
+                        }
+
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DISABLE_PVP_CONFIRM, creature->GetObjectGuid());
+                        return true;
+                    }
+
                     default: break;
                 }
             }
@@ -2029,7 +2073,8 @@ namespace cmangos_module
             { "leveldown", std::bind(&HardcoreModule::HandleLevelDownCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "revive", std::bind(&HardcoreModule::HandleToggleReviveCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "droploot", std::bind(&HardcoreModule::HandleToggleDropLootCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
-            { "losexp", std::bind(&HardcoreModule::HandleToggleLoseXPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER }
+            { "losexp", std::bind(&HardcoreModule::HandleToggleLoseXPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "pvp", std::bind(&HardcoreModule::HandleTogglePVPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER }
         };
 
         return &commandTable;
@@ -2219,6 +2264,42 @@ namespace cmangos_module
         return false;
     }
 
+    bool HardcoreModule::HandleTogglePVPCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player)
+        {
+            if (!args.empty())
+            {
+                const bool enable = args == "1" || args == "true" ? false : false;
+
+                // Get the selected player or self
+                const Player* target = player;
+                const ObjectGuid& guid = player->GetSelectionGuid();
+                if (guid)
+                {
+                    target = sObjectMgr.GetPlayer(guid);
+                }
+
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+                {
+                    playerConfig->TogglePVPDisabled(!enable);
+
+                    std::ostringstream notification;
+                    notification << "PVP has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+
+                    WorldPacket data;
+                    ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                    player->SendDirectMessage(data);
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     void HardcoreModule::OnStoreItem(Player* player, Loot* loot, Item* item)
     {
         if (GetConfig()->enabled && GetConfig()->IsDropLootEnabled())
@@ -2278,6 +2359,40 @@ namespace cmangos_module
                 }
             }
         }
+    }
+
+    bool HardcoreModule::OnGetReactionTo(const Unit* unit, const Unit* target, ReputationRank& outReaction)
+    {
+        if (GetConfig()->enabled && GetConfig()->disablePVP && !m_getReactionToInternal)
+        {
+            if (unit && target && unit->IsPlayer() && target->IsPlayer())
+            {
+                const Player* player = static_cast<const Player*>(unit);
+                const Player* playerTarget = static_cast<const Player*>(target);
+
+                m_getReactionToInternal = true;
+                outReaction = unit->GetReactionTo(target);
+                m_getReactionToInternal = false;
+
+                if (outReaction == REP_HOSTILE)
+                {
+                    const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player);
+                    const bool playerDisabledPvp = playerConfig && playerConfig->IsPVPDisabled();
+
+                    const HardcorePlayerConfig* targetConfig = GetPlayerConfig(playerTarget);
+                    const bool targetDisabledPvp = targetConfig && targetConfig->IsPVPDisabled();
+
+                    if (playerDisabledPvp || targetDisabledPvp)
+                    {
+                        outReaction = REP_FRIENDLY;
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void HardcoreModule::PreLoadGraves()

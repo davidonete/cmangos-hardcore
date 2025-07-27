@@ -165,10 +165,12 @@ namespace cmangos_module
         bool IsReviveDisabled() const { return m_reviveDisabled; }
         bool ShouldDropLootOnDeath() const { return m_dropLootOnDeath; }
         bool ShouldLoseXPOnDeath() const { return m_loseXPOnDeath; }
+        bool IsPVPDisabled() const { return m_pvpDisabled; }
 
         void ToggleReviveDisabled(bool enable);
         void ToggleDropLootOnDeath(bool enable);
         void ToggleLoseXPOnDeath(bool enable);
+        void TogglePVPDisabled(bool enable);
 
     private:
         uint32 m_playerId;
@@ -176,6 +178,7 @@ namespace cmangos_module
         bool m_reviveDisabled;
         bool m_dropLootOnDeath;
         bool m_loseXPOnDeath;
+        bool m_pvpDisabled;
     };
 
     class HardcoreModule : public Module
@@ -197,6 +200,9 @@ namespace cmangos_module
         void OnDeath(Player* player, Unit* killer) override;
         void OnReleaseSpirit(Player* player, const WorldSafeLocsEntry* closestGrave) override;
         void OnStoreItem(Player* player, Loot* loot, Item* item) override;
+
+        // Unit hooks
+        bool OnGetReactionTo(const Unit* unit, const Unit* target, ReputationRank& outReaction) override;
 
         // Loot hooks
         bool OnFillLoot(Loot* loot, Player* owner) override;
@@ -220,6 +226,7 @@ namespace cmangos_module
         bool HandleToggleReviveCommand(WorldSession* session, const std::string& args);
         bool HandleToggleDropLootCommand(WorldSession* session, const std::string& args);
         bool HandleToggleLoseXPCommand(WorldSession* session, const std::string& args);
+        bool HandleTogglePVPCommand(WorldSession* session, const std::string& args);
 
         HardcorePlayerConfig* GetPlayerConfig(uint32 playerId);
         HardcorePlayerConfig* GetPlayerConfig(const Player* player);
@@ -254,6 +261,8 @@ namespace cmangos_module
         std::unordered_map<uint32, HardcorePlayerGrave> m_playerGraves;
         std::unordered_map<uint32, std::map<uint32, HardcorePlayerLoot>> m_playersLoot;
         std::unordered_map<uint32, HardcorePlayerConfig> m_playerManagers;
+
+        bool m_getReactionToInternal;
     };
 }
 #endif
