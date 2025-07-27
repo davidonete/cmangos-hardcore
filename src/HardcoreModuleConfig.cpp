@@ -6,6 +6,7 @@ namespace cmangos_module
     HardcoreModuleConfig::HardcoreModuleConfig()
     : ModuleConfig("hardcore.conf")
     , enabled(false)
+    , playerConfig(false)
     , spawnGrave(false)
     , graveGameObjectId(0U)
     , graveMessage("")
@@ -13,11 +14,11 @@ namespace cmangos_module
     , dropGearPct(0.0f)
     , dropItemsPct(0.0f)
     , dropMoneyPct(0.0f)
-    #ifdef ENABLE_PLAYERBOTS
+#ifdef ENABLE_PLAYERBOTS
     , botDropGearPct(0.0f)
     , botDropItemsPct(0.0f)
     , botDropMoneyPct(0.0f)
-    #endif
+#endif
     , removeLootOnCharacterDeleted(true)
     , lootGameObjectId(0U)
     , reviveDisabled(false)
@@ -39,6 +40,7 @@ namespace cmangos_module
     bool HardcoreModuleConfig::OnLoad()
     {
         enabled = config.GetBoolDefault("Hardcore.Enable", false);
+        playerConfig = config.GetBoolDefault("Hardcore.PlayerConfig", false);
         spawnGrave = config.GetBoolDefault("Hardcore.SpawnGrave", false);
         graveGameObjectId = config.GetIntDefault("Hardcore.GraveGameObjectID", 0U);
         graveMessage = config.GetStringDefault("Hardcore.GraveMessage", "Here lies <PlayerName>");
@@ -66,5 +68,17 @@ namespace cmangos_module
         levelDownMinLevel = config.GetIntDefault("Hardcore.LevelDownMinLevel", 1);
         levelDownMaxLevel = config.GetIntDefault("Hardcore.LevelDownMaxLevel", DEFAULT_MAX_LEVEL);
         return true;
+    }
+
+    bool HardcoreModuleConfig::IsDropLootEnabled() const
+    {
+        return dropGearPct > 0.0f ||
+#ifdef ENABLE_PLAYERBOTS
+               botDropGearPct > 0.0f ||
+               botDropItemsPct > 0.0f ||
+               botDropMoneyPct > 0.0f ||
+#endif
+               dropItemsPct > 0.0f ||
+               dropMoneyPct > 0.0f;
     }
 }

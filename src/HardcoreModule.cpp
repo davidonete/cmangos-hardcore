@@ -1,5 +1,7 @@
 #include "HardcoreModule.h"
 
+#include "AI/ScriptDevAI/include/sc_gossip.h"
+#include "Entities/GossipDef.h"
 #include "Entities/Player.h"
 #include "Globals/ObjectMgr.h"
 #include "Globals/ObjectAccessor.h"
@@ -7,9 +9,13 @@
 #include "SystemConfig.h"
 #include "World/World.h"
 
+#ifdef ENABLE_PLAYERBOTS
+#include "playerbot/PlayerbotAI.h"
+#endif
+
 namespace cmangos_module
 {
-    bool IsInRaid(Player* player, HardcoreModule* module)
+    bool IsInRaid(const Player* player, const Unit* killer = nullptr)
     {
         if (player && player->IsInWorld())
         {
@@ -20,16 +26,11 @@ namespace cmangos_module
                     return map->IsRaid();
                 }
             }
-            else
+            else if (killer)
             {
-                // Try to get the map from the killer
-                Unit* killer = module->GetKiller(player);
-                if (killer)
+                if (const Map* map = killer->GetMap())
                 {
-                    if (const Map* map = killer->GetMap())
-                    {
-                        return map->IsRaid();
-                    }
+                    return map->IsRaid();
                 }
             }
         }
@@ -37,7 +38,7 @@ namespace cmangos_module
         return false;
     }
 
-    bool IsInDungeon(Player* player, HardcoreModule* module)
+    bool IsInDungeon(const Player* player, const Unit* killer = nullptr)
     {
         if (player && player->IsInWorld())
         {
@@ -48,16 +49,11 @@ namespace cmangos_module
                     return map->IsDungeon();
                 }
             }
-            else
+            else if (killer)
             {
-                // Try to get the map from the killer
-                Unit* killer = module->GetKiller(player);
-                if (killer)
+                if (const Map* map = killer->GetMap())
                 {
-                    if (const Map* map = killer->GetMap())
-                    {
-                        return map->IsDungeon();
-                    }
+                    return map->IsDungeon();
                 }
             }
         }
@@ -65,9 +61,9 @@ namespace cmangos_module
         return false;
     }
 
-    bool IsFairKill(Player* player, Unit* killer)
+    bool IsFairKill(const Player* player, const Unit* killer)
     {
-        if (killer && killer->IsPlayer())
+        if (player && killer && killer->IsPlayer())
         {
             const uint32 killerLevel = killer->GetLevel();
             const uint32 playerLevel = player->GetLevel();
@@ -75,6 +71,227 @@ namespace cmangos_module
         }
 
         return true;
+    }
+
+    uint32 GetMaxPlayerLoot(const HardcoreModuleConfig* moduleConfig)
+    {
+        const uint32 maxPlayerLoot = moduleConfig ? moduleConfig->maxDroppedLoot : 0;
+        return maxPlayerLoot > 0 ? maxPlayerLoot : 1;
+    }
+
+    float GetDropMoneyRate(const Player* player, const HardcoreModuleConfig* moduleConfig)
+    {
+        if (moduleConfig)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            const bool isBot = player ? !player->isRealPlayer() : false;
+            return isBot ? moduleConfig->botDropMoneyPct : moduleConfig->dropMoneyPct;
+#else
+            return moduleConfig->dropMoneyPct;
+#endif
+        }
+
+        return 0;
+    }
+
+    float GetDropItemsRate(const Player* player, const HardcoreModuleConfig* moduleConfig)
+    {
+        if (moduleConfig)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            const bool isBot = player ? !player->isRealPlayer() : false;
+            return isBot ? moduleConfig->botDropItemsPct : moduleConfig->dropItemsPct;
+#else
+            return moduleConfig->dropItemsPct;
+#endif
+        }
+
+        return 0;
+    }
+
+    float GetDropGearRate(const Player* player, const HardcoreModuleConfig* moduleConfig)
+    {
+        if (moduleConfig)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            const bool isBot = player ? !player->isRealPlayer() : false;
+            return isBot ? moduleConfig->botDropGearPct : moduleConfig->dropGearPct;
+#else
+            return moduleConfig->dropGearPct;
+#endif
+        }
+
+        return 0;
+    }
+
+    bool ShouldLevelDown(const Player* player, const Unit* killer, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (player && moduleConfig && moduleConfig->enabled)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            // Bots should never level down
+            if (!player->isRealPlayer())
+                return false;
+#endif
+
+            if (moduleConfig->levelDownPct > 0.0f)
+            {
+                const uint32 playerLevel = player->GetLevel();
+                if (playerLevel < moduleConfig->levelDownMinLevel || playerLevel >= moduleConfig->levelDownMaxLevel)
+                {
+                    return false;
+                }
+
+                if (!moduleConfig->levelDownOnDungeons && IsInDungeon(player, killer))
+                {
+                    return false;
+                }
+
+                if (!moduleConfig->levelDownOnRaids && IsInRaid(player, killer))
+                {
+                    return false;
+                }
+
+                return !helper::InPvpMap(player) && IsFairKill(player, killer) && (!playerConfig || playerConfig->ShouldLoseXPOnDeath());
+            }
+        }
+
+        return false;
+    }
+
+    bool ShouldDropMoney(const Player* player, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (player && moduleConfig && moduleConfig->enabled)
+        {
+            if (!helper::InPvpMap(player) && (!playerConfig || playerConfig->ShouldDropLootOnDeath()))
+            {
+                return GetDropMoneyRate(player, moduleConfig) > 0;
+            }
+        }
+
+        return false;
+    }
+
+    bool ShouldDropItems(const Player* player, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (player && moduleConfig && moduleConfig->enabled)
+        {
+            if (!helper::InPvpMap(player) && (!playerConfig || playerConfig->ShouldDropLootOnDeath()))
+            {
+                return GetDropItemsRate(player, moduleConfig) > 0;
+            }
+        }
+
+        return false;
+    }
+
+    bool ShouldDropGear(const Player* player, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (player && moduleConfig && moduleConfig->enabled)
+        {
+            if (!helper::InPvpMap(player) && (!playerConfig || playerConfig->ShouldDropLootOnDeath()))
+            {
+                return GetDropGearRate(player, moduleConfig) > 0;
+            }
+        }
+
+        return false;
+    }
+
+    bool ShouldDropLoot(const Player* player, const Unit* killer, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (player && moduleConfig && moduleConfig->enabled)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            // Only drop loot if a bot gets killed by a real player
+            if (!player->isRealPlayer())
+            {
+                if (!killer || (killer->IsCreature() || (killer->IsPlayer() && !((Player*)killer)->isRealPlayer())))
+                {
+                    return false;
+                }
+            }
+#endif
+
+            const uint32 playerLevel = player->GetLevel();
+            if (playerLevel < moduleConfig->dropMinLevel || playerLevel >= moduleConfig->dropMaxLevel)
+            {
+                return false;
+            }
+
+            if (!moduleConfig->dropOnDungeons && IsInDungeon(player, killer))
+            {
+                return false;
+            }
+
+            if (!moduleConfig->dropOnRaids && IsInRaid(player, killer))
+            {
+                return false;
+            }
+
+            return IsFairKill(player, killer) && (ShouldDropGear(player, moduleConfig, playerConfig) || ShouldDropItems(player, moduleConfig, playerConfig) || ShouldDropMoney(player, moduleConfig, playerConfig));
+        }
+
+        return false;
+    }
+
+    bool ShouldSpawnGrave(const Player* player, const Unit* killer, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (player && moduleConfig && moduleConfig->enabled && moduleConfig->spawnGrave)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            // Bots should never spawn a grave
+            if (!player->isRealPlayer())
+                return false;
+#endif
+
+            if (IsInDungeon(player, killer))
+            {
+                return false;
+            }
+
+            if (IsInRaid(player, killer))
+            {
+                return false;
+            }
+
+            // Only spawn when its a hardcore character
+            return !helper::InPvpMap(player) && (!playerConfig || playerConfig->IsReviveDisabled());
+        }
+
+        return false;
+    }
+
+    bool IsReviveDisabled(const Player* player, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (player && moduleConfig)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            // Bots always should revive using ghosts
+            if (!player->isRealPlayer())
+                return false;
+#endif
+
+            return moduleConfig->reviveDisabled && (!playerConfig || playerConfig->IsReviveDisabled());
+        }
+
+        return false;
+    }
+
+    bool ShouldReviveOnGraveyard(const Player* player, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (player && moduleConfig && moduleConfig->enabled && moduleConfig->reviveOnGraveyard)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            // Bots always should revive using ghosts
+            if (!player->isRealPlayer())
+                return false;
+#endif
+
+            return !helper::InPvpMap(player) && !IsInDungeon(player) && !IsInRaid(player) && !IsReviveDisabled(player, moduleConfig, playerConfig);
+        }
+
+        return false;
     }
 
     HardcoreLootItem::HardcoreLootItem(uint32 id, uint8 amount)
@@ -123,7 +340,7 @@ namespace cmangos_module
 
     }
 
-    HardcoreLootGameObject::HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, HardcoreModule* module)
+    HardcoreLootGameObject::HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, const HardcoreModuleConfig* moduleConfig)
     : m_id(id)
     , m_playerId(playerId)
     , m_guid(0)
@@ -137,12 +354,12 @@ namespace cmangos_module
     , m_mapId(mapId)
     , m_phaseMask(phaseMask)
     , m_items(items)
-    , m_module(module)
+    , m_moduleConfig(moduleConfig)
     {
 
     }
 
-    HardcoreLootGameObject HardcoreLootGameObject::Load(uint32 id, uint32 playerId, HardcoreModule* module)
+    HardcoreLootGameObject HardcoreLootGameObject::Load(uint32 id, uint32 playerId, const HardcoreModuleConfig* moduleConfig)
     {
         std::vector<HardcoreLootItem> items;
         uint32 lootId, lootTableId, money, mapId, phaseMask;
@@ -181,10 +398,10 @@ namespace cmangos_module
             }
         }
 
-        return HardcoreLootGameObject(id, playerId, lootId, lootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items, module);
+        return HardcoreLootGameObject(id, playerId, lootId, lootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items, moduleConfig);
     }
 
-    HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, HardcoreModule* module)
+    HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, const HardcoreModuleConfig* moduleConfig)
     {
         // Generate valid loot table id
         uint32 newLootTableId = 1;
@@ -230,14 +447,14 @@ namespace cmangos_module
             mapId,
             phaseMask);
 
-        return HardcoreLootGameObject(newGOId, playerId, lootId, newLootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items, module);
+        return HardcoreLootGameObject(newGOId, playerId, lootId, newLootTableId, money, positionX, positionY, positionZ, orientation, mapId, phaseMask, items, moduleConfig);
     }
 
     void HardcoreLootGameObject::Spawn()
     {
         if (!IsSpawned())
         {
-            const static uint32 lootGOEntry = m_module->GetConfig()->lootGameObjectId;
+            const static uint32 lootGOEntry = m_moduleConfig->lootGameObjectId;
             const uint32 goLowGUID = sObjectMgr.GenerateStaticGameObjectLowGuid();
             if (goLowGUID)
             {
@@ -409,7 +626,7 @@ namespace cmangos_module
 
     void HardcorePlayerLoot::LoadGameObject(uint32 gameObjectId)
     {
-        m_gameObjects.push_back(std::move(HardcoreLootGameObject::Load(gameObjectId, m_playerId, m_module)));
+        m_gameObjects.push_back(std::move(HardcoreLootGameObject::Load(gameObjectId, m_playerId, m_module->GetConfig())));
     }
 
     HardcoreLootGameObject* HardcorePlayerLoot::FindGameObjectByGUID(const uint32 guid)
@@ -553,7 +770,9 @@ namespace cmangos_module
             };
 
             // Get player's gear
-            if (m_module->ShouldDropGear(player))
+            const HardcoreModuleConfig* moduleConfig = m_module->GetConfig();
+            const HardcorePlayerConfig* playerConfig = m_module->GetPlayerConfig(player);
+            if (ShouldDropGear(player, moduleConfig, playerConfig))
             {
                 std::vector<HardcoreLootItem> playerGear;
 
@@ -564,11 +783,11 @@ namespace cmangos_module
                 }
 
                 // Generate random list of gear to drop
-                SelectItemsToDrop(m_module->GetDropGearRate(player), playerGear, playerLoot);
+                SelectItemsToDrop(GetDropGearRate(player, moduleConfig), playerGear, playerLoot);
             }
 
             // Get player's bag items
-            if (m_module->ShouldDropItems(player))
+            if (ShouldDropItems(player, moduleConfig, playerConfig))
             {
                 std::vector<HardcoreLootItem> playerItems;
 
@@ -588,7 +807,7 @@ namespace cmangos_module
                 }
 
                 // Generate random list of items to drop
-                SelectItemsToDrop(m_module->GetDropItemsRate(player), playerItems, playerLoot);
+                SelectItemsToDrop(GetDropItemsRate(player, moduleConfig), playerItems, playerLoot);
             }
 
             if (!playerLoot.empty())
@@ -612,9 +831,9 @@ namespace cmangos_module
 
                 // Calculate the amount of money to drop
                 uint32 dropMoney = 0;
-                if (m_module->ShouldDropMoney(player))
+                if (ShouldDropMoney(player, moduleConfig, playerConfig))
                 {
-                    const float moneyDropRate = std::min(m_module->GetDropMoneyRate(player), 1.0f);
+                    const float moneyDropRate = std::min(GetDropMoneyRate(player, moduleConfig), 1.0f);
                     const uint32 playerMoney = player->GetMoney();
                     dropMoney = playerMoney * moneyDropRate;
 
@@ -656,7 +875,7 @@ namespace cmangos_module
                     // Increment the angle for the next point
                     angle += angleIncrement;
 
-                    HardcoreLootGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreLootGameObject::Create(m_playerId, m_id, dropMoney, x, y, z, o, mapId, phaseMask, items, m_module)));
+                    HardcoreLootGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreLootGameObject::Create(m_playerId, m_id, dropMoney, x, y, z, o, mapId, phaseMask, items, moduleConfig)));
                 
                     // We only want the money to drop once
                     if (dropMoney)
@@ -685,7 +904,7 @@ namespace cmangos_module
         m_gameObjects.clear();
     }
 
-    HardcoreGraveGameObject::HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, HardcoreModule* module)
+    HardcoreGraveGameObject::HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const HardcoreModuleConfig* moduleConfig)
     : m_id(id)
     , m_gameObjectEntry(gameObjectEntry)
     , m_guid(0)
@@ -696,12 +915,12 @@ namespace cmangos_module
     , m_orientation(orientation)
     , m_mapId(mapId)
     , m_phaseMask(phaseMask)
-    , m_module(module)
+    , m_moduleConfig(moduleConfig)
     {
 
     }
 
-    HardcoreGraveGameObject HardcoreGraveGameObject::Load(uint32 id, HardcoreModule* module)
+    HardcoreGraveGameObject HardcoreGraveGameObject::Load(uint32 id, const HardcoreModuleConfig* moduleConfig)
     {
         uint32 gameObjectEntry, playerId, mapId, phaseMask;
         float positionX, positionY, positionZ, orientation;
@@ -720,10 +939,10 @@ namespace cmangos_module
             phaseMask = fields[7].GetUInt32();
         }
 
-        return HardcoreGraveGameObject(id, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask, module);
+        return HardcoreGraveGameObject(id, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask, moduleConfig);
     }
 
-    HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, HardcoreModule* module)
+    HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const HardcoreModuleConfig* moduleConfig)
     {
         // Generate valid game object id
         uint32 newGameObjectId = 1;
@@ -745,7 +964,7 @@ namespace cmangos_module
             mapId,
             phaseMask);
 
-        return HardcoreGraveGameObject(newGameObjectId, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask, module);
+        return HardcoreGraveGameObject(newGameObjectId, gameObjectEntry, playerId, positionX, positionY, positionZ, orientation, mapId, phaseMask, moduleConfig);
     }
 
     void HardcoreGraveGameObject::Spawn()
@@ -757,7 +976,7 @@ namespace cmangos_module
             const GameObjectInfo* goInfo = sObjectMgr.GetGameObjectInfo(m_gameObjectEntry);
             if (!goInfo)
             {
-                gameObjectEntry = m_module->GetConfig()->graveGameObjectId;
+                gameObjectEntry = m_moduleConfig->graveGameObjectId;
             }
 
             const uint32 goLowGUID = sObjectMgr.GenerateStaticGameObjectLowGuid();
@@ -872,24 +1091,24 @@ namespace cmangos_module
         CharacterDatabase.PExecute("DELETE FROM custom_hardcore_grave_gameobjects WHERE id = '%d'", m_id);
     }
 
-    HardcorePlayerGrave::HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const std::vector<HardcoreGraveGameObject>& gameObjects, HardcoreModule* module)
+    HardcorePlayerGrave::HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const std::vector<HardcoreGraveGameObject>& gameObjects, const HardcoreModuleConfig* moduleConfig)
     : m_playerId(playerId)
     , m_gameObjectEntry(gameObjectEntry)
     , m_gameObjects(gameObjects)
-    , m_module(module)
+    , m_moduleConfig(moduleConfig)
     {
     
     }
 
-    HardcorePlayerGrave::HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, HardcoreModule* module)
+    HardcorePlayerGrave::HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const HardcoreModuleConfig* moduleConfig)
     : m_playerId(playerId)
     , m_gameObjectEntry(gameObjectEntry)
-    , m_module(module)
+    , m_moduleConfig(moduleConfig)
     {
     
     }
 
-    HardcorePlayerGrave HardcorePlayerGrave::Load(uint32 playerId, uint32 gameObjectEntry, HardcoreModule* module)
+    HardcorePlayerGrave HardcorePlayerGrave::Load(uint32 playerId, uint32 gameObjectEntry, const HardcoreModuleConfig* moduleConfig)
     {
         std::vector<HardcoreGraveGameObject> gameObjects;
         auto result = CharacterDatabase.PQuery("SELECT id FROM custom_hardcore_grave_gameobjects WHERE player = '%d'", playerId);
@@ -899,15 +1118,15 @@ namespace cmangos_module
             {
                 Field* fields = result->Fetch();
                 const uint32 gameObjectId = fields[0].GetUInt32();
-                gameObjects.push_back(std::move(HardcoreGraveGameObject::Load(gameObjectId, module)));
+                gameObjects.push_back(std::move(HardcoreGraveGameObject::Load(gameObjectId, moduleConfig)));
             } 
             while (result->NextRow());
         }
 
-        return HardcorePlayerGrave(playerId, gameObjectEntry, gameObjects, module);
+        return HardcorePlayerGrave(playerId, gameObjectEntry, gameObjects, moduleConfig);
     }
 
-    HardcorePlayerGrave HardcorePlayerGrave::Generate(uint32 playerId, const std::string& playerName, HardcoreModule* module)
+    HardcorePlayerGrave HardcorePlayerGrave::Generate(uint32 playerId, const std::string& playerName, const HardcoreModuleConfig* moduleConfig)
     {
         // Generate valid game object entry
         uint32 newGameObjectEntry = 0;
@@ -923,14 +1142,14 @@ namespace cmangos_module
             // Get gameobject info from existing gameobject from config
             float size = 1.29f;
             uint32 displayId = 12;
-            const GameObjectInfo* goInfo = ObjectMgr::GetGameObjectInfo(module->GetConfig()->graveGameObjectId);
+            const GameObjectInfo* goInfo = ObjectMgr::GetGameObjectInfo(moduleConfig->graveGameObjectId);
             if (goInfo)
             {
                 displayId = goInfo->displayId;
                 size = goInfo->size;
             }
 
-            std::string graveMessage = GenerateGraveMessage(playerName, module);
+            std::string graveMessage = GenerateGraveMessage(playerName, moduleConfig);
             WorldDatabase.PExecute("INSERT INTO gameobject_template (entry, type, displayId, name, size, data10, CustomData1) VALUES ('%d', '%d', '%d', '%s', '%f', '%d', '%d')",
                 newGameObjectEntry, 
                 2, 
@@ -941,7 +1160,7 @@ namespace cmangos_module
                 3643);
         }
 
-        return HardcorePlayerGrave(playerId, newGameObjectEntry, module);
+        return HardcorePlayerGrave(playerId, newGameObjectEntry, moduleConfig);
     }
 
     void HardcorePlayerGrave::Spawn()
@@ -984,7 +1203,7 @@ namespace cmangos_module
             // Check if the height coordinate is valid
             player->UpdateAllowedPositionZ(x, y, z);
 
-            HardcoreGraveGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreGraveGameObject::Create(m_playerId, m_gameObjectEntry, x, y, z, o, mapId, phaseMask, m_module)));
+            HardcoreGraveGameObject& gameObject = m_gameObjects.emplace_back(std::move(HardcoreGraveGameObject::Create(m_playerId, m_gameObjectEntry, x, y, z, o, mapId, phaseMask, m_moduleConfig)));
             gameObject.Spawn();
         }
     }
@@ -1002,10 +1221,10 @@ namespace cmangos_module
         WorldDatabase.PExecute("DELETE FROM gameobject_template WHERE entry = '%d'", m_gameObjectEntry);
     }
 
-    std::string HardcorePlayerGrave::GenerateGraveMessage(const std::string& playerName, HardcoreModule* module)
+    std::string HardcorePlayerGrave::GenerateGraveMessage(const std::string& playerName, const HardcoreModuleConfig* moduleConfig)
     {
         std::string gravestoneMessage;
-        std::string gravestoneMessages = module->GetConfig()->graveMessage;
+        std::string gravestoneMessages = moduleConfig->graveMessage;
 
         // Check if we have multiple messages to select from
         char separator = '|';
@@ -1045,6 +1264,97 @@ namespace cmangos_module
         return gravestoneMessage;
     }
 
+    HardcorePlayerConfig::HardcorePlayerConfig(uint32 playerId)
+    : m_playerId(playerId)
+    {
+
+    }
+
+    HardcorePlayerConfig HardcorePlayerConfig::Load(uint32 playerId)
+    {
+        HardcorePlayerConfig playerConfig(playerId);
+        if (playerId > 0)
+        {
+            // Player config
+            {
+                auto result = CharacterDatabase.PQuery("SELECT revive_disabled, drop_loot_on_death, lose_xp_on_death FROM custom_hardcore_player_config WHERE id = '%d'", playerId);
+                if (result)
+                {
+                    Field* fields = result->Fetch();
+                    playerConfig.m_reviveDisabled = fields[0].GetBool();
+                    playerConfig.m_dropLootOnDeath = fields[1].GetBool();
+                    playerConfig.m_loseXPOnDeath = fields[2].GetBool();
+                }
+                else
+                {
+                    playerConfig.m_reviveDisabled = false;
+                    playerConfig.m_dropLootOnDeath = false;
+                    playerConfig.m_loseXPOnDeath = false;
+
+                    CharacterDatabase.PExecute("INSERT INTO custom_hardcore_player_config (id, revive_disabled, drop_loot_on_death, lose_xp_on_death) VALUES ('%d', '%d', '%d', '%d')",
+                        playerId,
+                        playerConfig.m_reviveDisabled ? 1 : 0,
+                        playerConfig.m_dropLootOnDeath ? 1 : 0,
+                        playerConfig.m_loseXPOnDeath ? 1 : 0);
+                }
+            }
+        }
+
+        return playerConfig;
+    }
+
+    void HardcorePlayerConfig::Destroy()
+    {
+        CharacterDatabase.PExecute("DELETE FROM custom_hardcore_player_config WHERE id = '%d'", m_playerId);
+    }
+
+    void HardcorePlayerConfig::ToggleReviveDisabled(bool enable)
+    {
+        m_reviveDisabled = enable;
+        CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET revive_disabled = '%d' WHERE id = '%d'", m_reviveDisabled ? 1 : 0, m_playerId);
+    }
+
+    void HardcorePlayerConfig::ToggleDropLootOnDeath(bool enable)
+    {
+        m_dropLootOnDeath = enable;
+        CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET drop_loot_on_death = '%d' WHERE id = '%d'", m_dropLootOnDeath ? 1 : 0, m_playerId);
+    }
+
+    void HardcorePlayerConfig::ToggleLoseXPOnDeath(bool enable)
+    {
+        m_loseXPOnDeath = enable;
+        CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET lose_xp_on_death = '%d' WHERE id = '%d'", m_loseXPOnDeath ? 1 : 0, m_playerId);
+    }
+
+    HardcoreModule::HardcoreModule()
+    : Module("Hardcore", new HardcoreModuleConfig())
+    {
+        
+    }
+
+    const HardcoreModuleConfig* HardcoreModule::GetConfig() const
+    {
+        return (HardcoreModuleConfig*)Module::GetConfig();
+    }
+
+    void HardcoreModule::OnWorldPreInitialized()
+    {
+        if (GetConfig()->enabled)
+        {
+            PreLoadLoot();
+            PreLoadGraves();
+        }
+    }
+
+    void HardcoreModule::OnInitialize()
+    {
+        if (GetConfig()->enabled)
+        {
+            LoadLoot();
+            LoadGraves();
+        }
+    }
+
     void HardcoreModule::OnCharacterCreated(Player* player)
     {
         // Generate player grave gameobject
@@ -1077,7 +1387,7 @@ namespace cmangos_module
             // Check if the player grave exists
             if (m_playerGraves.find(playerId) == m_playerGraves.end())
             {
-                m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, player->GetName(), this)));
+                m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, player->GetName(), GetConfig())));
             }
         }
     }
@@ -1109,41 +1419,20 @@ namespace cmangos_module
                 m_playersLoot.erase(playerLootIt);
             }
         }
+
+        auto playerManagerIt = m_playerManagers.find(playerId);
+        if (playerManagerIt != m_playerManagers.end())
+        {
+            HardcorePlayerConfig* playerManager = &playerManagerIt->second;
+            playerManager->Destroy();
+            m_playerManagers.erase(playerId);
+        }
     }
 
     bool HardcoreModule::OnPreResurrect(Player* player)
     {
         // Prevent resurrecting
-        return !CanRevive(player);
-    }
-
-    HardcoreModule::HardcoreModule()
-    : Module("Hardcore", new HardcoreModuleConfig())
-    {
-        
-    }
-
-    const HardcoreModuleConfig* HardcoreModule::GetConfig() const
-    {
-        return (HardcoreModuleConfig*)Module::GetConfig();
-    }
-
-    void HardcoreModule::OnWorldPreInitialized()
-    {
-        if (GetConfig()->enabled)
-        {
-            PreLoadLoot();
-            PreLoadGraves();
-        }
-    }
-
-    void HardcoreModule::OnInitialize()
-    {
-        if (GetConfig()->enabled)
-        {
-            LoadLoot();
-            LoadGraves();
-        }
+        return IsReviveDisabled(player, GetConfig(), GetPlayerConfig(player));
     }
 
     void HardcoreModule::OnResurrect(Player* player)
@@ -1180,7 +1469,7 @@ namespace cmangos_module
     void HardcoreModule::OnReleaseSpirit(Player* player, const WorldSafeLocsEntry* closestGrave)
     {
         const bool teleportedToGraveyard = closestGrave != nullptr;
-        if (player && teleportedToGraveyard && ShouldReviveOnGraveyard(player))
+        if (player && teleportedToGraveyard && ShouldReviveOnGraveyard(player, GetConfig(), GetPlayerConfig(player)))
         {
             player->ResurrectPlayer(1.0f);
             player->SpawnCorpseBones();
@@ -1219,7 +1508,7 @@ namespace cmangos_module
 
     void HardcoreModule::PreLoadLoot()
     {
-        if (IsDropLootEnabled())
+        if (GetConfig()->IsDropLootEnabled())
         {
             // Load the loot game objects and loot tables
             auto result = CharacterDatabase.Query("SELECT id, player, loot_id FROM custom_hardcore_loot_gameobjects");
@@ -1258,7 +1547,7 @@ namespace cmangos_module
 
     void HardcoreModule::LoadLoot()
     {
-        if (IsDropLootEnabled())
+        if (GetConfig()->IsDropLootEnabled())
         {
             // Add the preloaded loot gameobjects into the world
             for (auto& pair : m_playersLoot)
@@ -1310,12 +1599,50 @@ namespace cmangos_module
                     // Check if the player grave exists
                     if (canGenerateGrave && m_playerGraves.find(playerId) == m_playerGraves.end())
                     {
-                        m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName, this)));
+                        m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName, GetConfig())));
                     }
                 }
                 while (result->NextRow());
             }
         }
+    }
+
+    HardcorePlayerConfig* HardcoreModule::GetPlayerConfig(uint32 playerId)
+    {
+        HardcorePlayerConfig* playerManager = nullptr;
+        if (GetConfig()->enabled && GetConfig()->playerConfig && playerId > 0)
+        {
+            auto playerManagerIt = m_playerManagers.find(playerId);
+            if (playerManagerIt != m_playerManagers.end())
+            {
+                playerManager = &playerManagerIt->second;
+            }
+            else
+            {
+#ifdef ENABLE_PLAYERBOTS
+                // No player config for bots
+                const ObjectGuid playerGUID = ObjectGuid(HIGHGUID_PLAYER, playerId);
+                if (const Player* player = sObjectMgr.GetPlayer(playerGUID))
+                {
+                    if (sRandomPlayerbotMgr.IsFreeBot(playerId))
+                    {
+                        return nullptr;
+                    }
+                }
+#endif
+
+                m_playerManagers.insert(std::make_pair(playerId, HardcorePlayerConfig::Load(playerId)));
+                playerManager = &m_playerManagers.find(playerId)->second;
+            }
+        }
+
+        return playerManager;
+    }
+
+    HardcorePlayerConfig* HardcoreModule::GetPlayerConfig(const Player* player)
+    {
+        const uint32 playerId = player ? player->GetObjectGuid().GetCounter() : 0;
+        return GetPlayerConfig(playerId);
     }
 
     HardcoreLootGameObject* HardcoreModule::FindLootGOByGUID(const uint32 guid)
@@ -1353,7 +1680,7 @@ namespace cmangos_module
 
     void HardcoreModule::CreateLoot(Player* player, Unit* killer)
     {
-        if (player && ShouldDropLoot(player, killer))
+        if (player && ShouldDropLoot(player, killer, GetConfig(), GetPlayerConfig(player)))
         {
             const uint32 playerId = player->GetObjectGuid().GetCounter();
 
@@ -1362,7 +1689,7 @@ namespace cmangos_module
             if (playerLootsIt != m_playersLoot.end())
             {
                 std::map<uint32, HardcorePlayerLoot>& playerLoots = playerLootsIt->second;
-                if (playerLoots.size() >= GetMaxPlayerLoot())
+                if (playerLoots.size() >= GetMaxPlayerLoot(GetConfig()))
                 {
                     // Get the oldest loot to remove
                     HardcorePlayerLoot& playerLoot = playerLoots.begin()->second;
@@ -1434,7 +1761,7 @@ namespace cmangos_module
 
     bool HardcoreModule::OnFillLoot(Loot* loot, Player* owner)
     {
-        if (GetConfig()->enabled && IsDropLootEnabled())
+        if (GetConfig()->enabled && GetConfig()->IsDropLootEnabled())
         {
             if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
             {
@@ -1457,7 +1784,7 @@ namespace cmangos_module
 
     bool HardcoreModule::OnGenerateMoneyLoot(Loot* loot, uint32& outMoney)
     {
-        if (GetConfig()->enabled && IsDropLootEnabled())
+        if (GetConfig()->enabled && GetConfig()->IsDropLootEnabled())
         {
             if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
             {
@@ -1476,7 +1803,7 @@ namespace cmangos_module
 
     void HardcoreModule::OnAddItem(Loot* loot, LootItem* lootItem)
     {
-        if (GetConfig()->enabled && IsDropLootEnabled())
+        if (GetConfig()->enabled && GetConfig()->IsDropLootEnabled())
         {
             if (loot && lootItem && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
             {
@@ -1493,7 +1820,7 @@ namespace cmangos_module
 
     void HardcoreModule::OnSendGold(Loot* loot, Player* player, uint32 gold, uint8 lootMethod)
     {
-        if (GetConfig()->enabled && IsDropLootEnabled())
+        if (GetConfig()->enabled && GetConfig()->IsDropLootEnabled())
         {
             if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
             {
@@ -1507,6 +1834,189 @@ namespace cmangos_module
         }
     }
 
+    bool HardcoreModule::OnPreGossipHello(Player* player, Creature* creature)
+    {
+        const HardcoreModuleConfig* moduleConfig = GetConfig();
+        if (moduleConfig->enabled && player && creature)
+        {
+            // Check if speaking with the hardcore npc
+            if (creature->GetEntry() != HARDCORE_NPC_ENTRY)
+                return false;
+
+#ifdef ENABLE_PLAYERBOTS
+            if (sRandomPlayerbotMgr.IsFreeBot(player))
+                return false;
+#endif
+
+            if (PlayerMenu* playerMenu = player->GetPlayerMenu())
+            {
+                playerMenu->ClearMenus();
+                if (moduleConfig->playerConfig)
+                {
+                    if (moduleConfig->reviveDisabled)
+                    {
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
+                    }
+
+                    if (moduleConfig->IsDropLootEnabled())
+                    {
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
+                    }
+
+                    if (moduleConfig->levelDownPct > 0.0f)
+                    {
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
+                    }
+
+                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN, creature->GetObjectGuid());
+                }
+                else
+                {
+                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN_DISABLED, creature->GetObjectGuid());
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action, const std::string& code, uint32 gossipListId)
+    {
+        const HardcoreModuleConfig* moduleConfig = GetConfig();
+        if (moduleConfig->enabled && player && creature)
+        {
+            // Check if speaking with the hardcore npc
+            if (creature->GetEntry() != HARDCORE_NPC_ENTRY)
+                return false;
+
+            if (PlayerMenu* playerMenu = player->GetPlayerMenu())
+            {
+                switch (action)
+                {
+                    case HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_HARDCORE_CHALLENGE, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DROP_LOOT_CHALLENGE, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_LOSE_XP_CHALLENGE, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            if (playerConfig->IsReviveDisabled())
+                            {
+                                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ALREADY_TAKEN_CHALLENGE, creature->GetObjectGuid());
+                            }
+                            else
+                            {
+                                if (player->GetLevel() == 1)
+                                {
+                                    playerConfig->ToggleReviveDisabled(true);
+                                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ACCEPT_CHALLENGE, creature->GetObjectGuid());
+                                }
+                                else
+                                {
+                                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                                }
+                            }
+                        }
+                        
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            if (playerConfig->ShouldDropLootOnDeath())
+                            {
+                                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ALREADY_TAKEN_CHALLENGE, creature->GetObjectGuid());
+                            }
+                            else
+                            {
+                                if (player->GetLevel() == 1)
+                                {
+                                    playerConfig->ToggleDropLootOnDeath(true);
+                                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ACCEPT_CHALLENGE, creature->GetObjectGuid());
+                                }
+                                else
+                                {
+                                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                                }
+                            }
+                        }
+
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            if (playerConfig->ShouldLoseXPOnDeath())
+                            {
+                                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ALREADY_TAKEN_CHALLENGE, creature->GetObjectGuid());
+                            }
+                            else
+                            {
+                                if (player->GetLevel() == 1)
+                                {
+                                    playerConfig->ToggleLoseXPOnDeath(true);
+                                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ACCEPT_CHALLENGE, creature->GetObjectGuid());
+                                }
+                                else
+                                {
+                                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                                }
+                            }
+                        }
+
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE:
+                    {
+                        OnPreGossipHello(player, creature);
+                        return true;
+                    }
+
+                    default: break;
+                }
+            }
+        }
+
+        return false;
+    }
+
     std::vector<ModuleChatCommand>* HardcoreModule::GetCommandTable()
     {
         static std::vector<ModuleChatCommand> commandTable =
@@ -1517,6 +2027,9 @@ namespace cmangos_module
             { "spawnloot", std::bind(&HardcoreModule::HandleSpawnLootCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "spawngrave", std::bind(&HardcoreModule::HandleSpawnGraveCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "leveldown", std::bind(&HardcoreModule::HandleLevelDownCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "revive", std::bind(&HardcoreModule::HandleToggleReviveCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "droploot", std::bind(&HardcoreModule::HandleToggleDropLootCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "losexp", std::bind(&HardcoreModule::HandleToggleLoseXPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER }
         };
 
         return &commandTable;
@@ -1598,9 +2111,117 @@ namespace cmangos_module
         return false;
     }
 
+    bool HardcoreModule::HandleToggleReviveCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player)
+        {
+            if (!args.empty())
+            {
+                const bool enable = args == "1" || args == "true" ? true : false;
+
+                // Get the selected player or self
+                const Player* target = player;
+                const ObjectGuid& guid = player->GetSelectionGuid();
+                if (guid)
+                {
+                    target = sObjectMgr.GetPlayer(guid);
+                }
+
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+                {
+                    playerConfig->ToggleReviveDisabled(!enable);
+
+                    std::ostringstream notification;
+                    notification << "Revive has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+                    
+                    WorldPacket data;
+                    ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                    player->SendDirectMessage(data);
+                    
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::HandleToggleDropLootCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player)
+        {
+            if (!args.empty())
+            {
+                const bool enable = args == "1" || args == "true" ? true : false;
+
+                // Get the selected player or self
+                const Player* target = player;
+                const ObjectGuid& guid = player->GetSelectionGuid();
+                if (guid)
+                {
+                    target = sObjectMgr.GetPlayer(guid);
+                }
+
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+                {
+                    playerConfig->ToggleDropLootOnDeath(enable);
+
+                    std::ostringstream notification;
+                    notification << "Drop loot on death has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+
+                    WorldPacket data;
+                    ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                    player->SendDirectMessage(data);
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::HandleToggleLoseXPCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player)
+        {
+            if (!args.empty())
+            {
+                const bool enable = args == "1" || args == "true" ? true : false;
+
+                // Get the selected player or self
+                const Player* target = player;
+                const ObjectGuid& guid = player->GetSelectionGuid();
+                if (guid)
+                {
+                    target = sObjectMgr.GetPlayer(guid);
+                }
+
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+                {
+                    playerConfig->ToggleLoseXPOnDeath(enable);
+
+                    std::ostringstream notification;
+                    notification << "Lose XP on death has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+
+                    WorldPacket data;
+                    ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                    player->SendDirectMessage(data);
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     void HardcoreModule::OnStoreItem(Player* player, Loot* loot, Item* item)
     {
-        if (GetConfig()->enabled && IsDropLootEnabled())
+        if (GetConfig()->enabled && GetConfig()->IsDropLootEnabled())
         {
             if (loot && item && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
             {
@@ -1659,232 +2280,6 @@ namespace cmangos_module
         }
     }
 
-    bool HardcoreModule::ShouldDropLoot(Player* player, Unit* killer /*= nullptr*/)
-    {
-        if (GetConfig()->enabled)
-        {
-            if (player)
-            {
-#ifdef ENABLE_PLAYERBOTS
-                // Only drop loot if a bot gets killed by a real player
-                if (!player->isRealPlayer())
-                {
-                    if (!killer || (killer->IsCreature() || (killer->IsPlayer() && !((Player*)killer)->isRealPlayer())))
-                    {
-                        return false;
-                    }
-                }
-#endif
-
-                const uint32 playerLevel = player->GetLevel();
-                if (playerLevel < GetConfig()->dropMinLevel || playerLevel >= GetConfig()->dropMaxLevel)
-                {
-                    return false;
-                }
-
-                if (!GetConfig()->dropOnDungeons && IsInDungeon(player, this))
-                {
-                    return false;
-                }
-                
-                if (!GetConfig()->dropOnRaids && IsInRaid(player, this))
-                {
-                    return false;
-                }
-
-                return IsFairKill(player, killer) && !helper::InPvpMap(player) && (ShouldDropGear(player) || ShouldDropItems(player) || ShouldDropMoney(player));
-            }
-        }
-
-        return false;
-    }
-
-    bool HardcoreModule::ShouldDropMoney(Player* player)
-    {
-        if (GetConfig()->enabled)
-        {
-            if (!helper::InPvpMap(player))
-            {
-                return GetDropMoneyRate(player);
-            }
-        }
-
-        return false;
-    }
-
-    bool HardcoreModule::ShouldDropItems(Player* player)
-    {
-        if (GetConfig()->enabled)
-        {
-            if (!helper::InPvpMap(player))
-            {
-                return GetDropItemsRate(player);
-            }
-        }
-
-        return false;
-    }
-
-    bool HardcoreModule::ShouldDropGear(Player* player)
-    {
-        if (GetConfig()->enabled)
-        {
-            if (player)
-            {
-                if (!helper::InPvpMap(player))
-                {
-                    return GetDropGearRate(player);
-                }
-            }
-        }
-
-        return false;
-    }
-
-    bool HardcoreModule::CanRevive(Player* player)
-    {
-        if (GetConfig()->enabled)
-        {
-            if (player && GetConfig()->reviveDisabled)
-            {
-#ifdef ENABLE_PLAYERBOTS
-                // Bots always should revive
-                if (!player->isRealPlayer())
-                    return true;
-#endif
-
-                return helper::InPvpMap(player);
-            }
-        }
-
-        return true;
-    }
-
-    bool HardcoreModule::ShouldReviveOnGraveyard(Player* player)
-    {
-        if (GetConfig()->enabled)
-        {
-            if (player && CanRevive(player) && GetConfig()->reviveOnGraveyard)
-            {
-#ifdef ENABLE_PLAYERBOTS
-                // Bots always should revive using ghosts
-                if (!player->isRealPlayer())
-                    return false;
-#endif
-
-                return !helper::InPvpMap(player) && !IsInDungeon(player, this) && !IsInRaid(player, this);
-            }
-        }
-
-        return false;
-    }
-
-    bool HardcoreModule::ShouldLevelDown(Player* player, Unit* killer /*= nullptr*/)
-    {
-        if (GetConfig()->enabled)
-        {
-            if (player && GetConfig()->levelDownPct > 0.0f)
-            {
-#ifdef ENABLE_PLAYERBOTS
-                // Bots should never level down
-                if (!player->isRealPlayer())
-                    return false;
-#endif
-
-                const uint32 playerLevel = player->GetLevel();
-                if (playerLevel < GetConfig()->levelDownMinLevel || playerLevel >= GetConfig()->levelDownMaxLevel)
-                {
-                    return false;
-                }
-
-                if (!GetConfig()->levelDownOnDungeons && IsInDungeon(player, this))
-                {
-                    return false;
-                }
-
-                if (!GetConfig()->levelDownOnRaids && IsInRaid(player, this))
-                {
-                    return false;
-                }
-
-                return !helper::InPvpMap(player) && IsFairKill(player, killer);
-            }
-        }
-
-        return false;
-    }
-
-    uint32 HardcoreModule::GetMaxPlayerLoot() const
-    {
-        const uint32 maxPlayerLoot = GetConfig()->maxDroppedLoot;
-        return maxPlayerLoot > 0 ? maxPlayerLoot : 1;
-    }
-
-    float HardcoreModule::GetDropMoneyRate(Player* player) const
-    {
-#ifdef ENABLE_PLAYERBOTS
-        const bool isBot = player ? !player->isRealPlayer() : false;
-        return isBot ? GetConfig()->botDropMoneyPct : GetConfig()->dropMoneyPct;
-#else
-        return GetConfig()->dropMoneyPct;
-#endif
-    }
-
-    float HardcoreModule::GetDropItemsRate(Player* player) const
-    {
-#ifdef ENABLE_PLAYERBOTS
-        const bool isBot = player ? !player->isRealPlayer() : false;
-        return isBot ? GetConfig()->botDropItemsPct : GetConfig()->dropItemsPct;
-#else
-        return GetConfig()->dropItemsPct;
-#endif
-    }
-
-    float HardcoreModule::GetDropGearRate(Player* player) const
-    {
-#ifdef ENABLE_PLAYERBOTS
-        const bool isBot = player ? !player->isRealPlayer() : false;
-        return isBot ? GetConfig()->botDropGearPct : GetConfig()->dropGearPct;
-#else
-        return GetConfig()->dropGearPct;
-#endif
-    }
-
-    bool HardcoreModule::ShouldSpawnGrave(Player* player, Unit* killer /*= nullptr*/)
-    {
-        if (GetConfig()->enabled && GetConfig()->spawnGrave)
-        {
-            if (player)
-            {
-#ifdef ENABLE_PLAYERBOTS
-                // Bots should never spawn a grave
-                if (!player->isRealPlayer())
-                    return false;
-#endif
-
-                const uint32 playerLevel = player->GetLevel();
-                if (playerLevel < GetConfig()->dropMinLevel || playerLevel >= GetConfig()->dropMaxLevel)
-                {
-                    return false;
-                }
-
-                if (!GetConfig()->dropOnDungeons && IsInDungeon(player, this))
-                {
-                    return false;
-                }
-
-                if (!GetConfig()->dropOnRaids && IsInRaid(player, this))
-                {
-                    return false;
-                }
-
-                return !helper::InPvpMap(player) && IsFairKill(player, killer);
-            }
-        }
-
-        return false;
-    }
-
     void HardcoreModule::PreLoadGraves()
     {
         if (GetConfig()->enabled && GetConfig()->spawnGrave)
@@ -1902,7 +2297,7 @@ namespace cmangos_module
                     if (m_playerGraves.find(playerId) == m_playerGraves.end())
                     {
                         // If not load player grave
-                        m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Load(playerId, gameObjectEntry, this)));
+                        m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Load(playerId, gameObjectEntry, GetConfig())));
                     }
                 }
                 while (result->NextRow());
@@ -1927,7 +2322,7 @@ namespace cmangos_module
 
     void HardcoreModule::CreateGrave(Player* player, Unit* killer)
     {
-        if (player && ShouldSpawnGrave(player, killer))
+        if (player && ShouldSpawnGrave(player, killer, GetConfig(), GetPlayerConfig(player)))
         {
             // Check if the player grave exists
             const uint32 playerId = player->GetObjectGuid().GetCounter();
@@ -1951,7 +2346,7 @@ namespace cmangos_module
 
     void HardcoreModule::LevelDown(Player* player, Unit* killer)
     {
-        if (player && ShouldLevelDown(player, killer))
+        if (player && ShouldLevelDown(player, killer, GetConfig(), GetPlayerConfig(player)))
         {
             // Calculate how many levels and XP (%) we have to remove
             const float levelDownRate = GetConfig()->levelDownPct;
@@ -2023,17 +2418,5 @@ namespace cmangos_module
             const ObjectGuid killerGuid = killer ? killer->GetObjectGuid() : ObjectGuid();
             m_lastPlayerDeaths[playerGuid] = killerGuid;
         }
-    }
-
-    bool HardcoreModule::IsDropLootEnabled() const
-    {
-        return GetConfig()->dropGearPct > 0.0f || 
-#ifdef ENABLE_PLAYERBOTS
-               GetConfig()->botDropGearPct > 0.0f ||
-               GetConfig()->botDropItemsPct > 0.0f ||
-               GetConfig()->botDropMoneyPct > 0.0f ||
-#endif
-               GetConfig()->dropItemsPct > 0.0f || 
-               GetConfig()->dropMoneyPct > 0.0f;
     }
 }

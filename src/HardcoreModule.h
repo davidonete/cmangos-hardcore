@@ -37,11 +37,11 @@ namespace cmangos_module
     class HardcoreLootGameObject
     {
     private:
-        HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, HardcoreModule* module);
+        HardcoreLootGameObject(uint32 id, uint32 playerId, uint32 lootId, uint32 lootTableId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, const HardcoreModuleConfig* moduleConfig);
 
     public:
-        static HardcoreLootGameObject Load(uint32 id, uint32 playerId, HardcoreModule* module);
-        static HardcoreLootGameObject Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, HardcoreModule* module);
+        static HardcoreLootGameObject Load(uint32 id, uint32 playerId, const HardcoreModuleConfig* moduleConfig);
+        static HardcoreLootGameObject Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, const HardcoreModuleConfig* moduleConfig);
 
         void Spawn();
         void DeSpawn();
@@ -73,7 +73,7 @@ namespace cmangos_module
         uint32 m_mapId;
         uint32 m_phaseMask;
         std::vector<HardcoreLootItem> m_items;
-        HardcoreModule* m_module;
+        const HardcoreModuleConfig* m_moduleConfig;
     };
 
     class HardcorePlayerLoot
@@ -103,11 +103,11 @@ namespace cmangos_module
     class HardcoreGraveGameObject
     {
     private:
-        HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, HardcoreModule* module);
+        HardcoreGraveGameObject(uint32 id, uint32 gameObjectEntry, uint32 playerId, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const HardcoreModuleConfig* moduleConfig);
 
     public:
-        static HardcoreGraveGameObject Load(uint32 id, HardcoreModule* module);
-        static HardcoreGraveGameObject Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, HardcoreModule* module);
+        static HardcoreGraveGameObject Load(uint32 id, const HardcoreModuleConfig* moduleConfig);
+        static HardcoreGraveGameObject Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const HardcoreModuleConfig* moduleConfig);
 
         void Spawn();
         void DeSpawn();
@@ -125,18 +125,18 @@ namespace cmangos_module
         float m_orientation;
         uint32 m_mapId;
         uint32 m_phaseMask;
-        HardcoreModule* m_module;
+        const HardcoreModuleConfig* m_moduleConfig;
     };
 
     class HardcorePlayerGrave
     {
     private:
-        HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, HardcoreModule* module);
-        HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const std::vector<HardcoreGraveGameObject>& gameObjects, HardcoreModule* module);
+        HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const HardcoreModuleConfig* moduleConfig);
+        HardcorePlayerGrave(uint32 playerId, uint32 gameObjectEntry, const std::vector<HardcoreGraveGameObject>& gameObjects, const HardcoreModuleConfig* moduleConfig);
 
     public:
-        static HardcorePlayerGrave Load(uint32 playerId, uint32 gameObjectEntry, HardcoreModule* module);
-        static HardcorePlayerGrave Generate(uint32 playerId, const std::string& playerName, HardcoreModule* module);
+        static HardcorePlayerGrave Load(uint32 playerId, uint32 gameObjectEntry, const HardcoreModuleConfig* moduleConfig);
+        static HardcorePlayerGrave Generate(uint32 playerId, const std::string& playerName, const HardcoreModuleConfig* moduleConfig);
 
         void Spawn();
         void DeSpawn();
@@ -144,13 +144,38 @@ namespace cmangos_module
         void Destroy();
 
     private:
-        static std::string GenerateGraveMessage(const std::string& playerName, HardcoreModule* module);
+        static std::string GenerateGraveMessage(const std::string& playerName, const HardcoreModuleConfig* moduleConfig);
 
     private:
         uint32 m_playerId;
         uint32 m_gameObjectEntry;
         std::vector<HardcoreGraveGameObject> m_gameObjects;
-        HardcoreModule* m_module;
+        const HardcoreModuleConfig* m_moduleConfig;
+    };
+
+    class HardcorePlayerConfig
+    {
+    private:
+        HardcorePlayerConfig(uint32 playerId);
+
+    public:
+        static HardcorePlayerConfig Load(uint32 playerId);
+        void Destroy();
+
+        bool IsReviveDisabled() const { return m_reviveDisabled; }
+        bool ShouldDropLootOnDeath() const { return m_dropLootOnDeath; }
+        bool ShouldLoseXPOnDeath() const { return m_loseXPOnDeath; }
+
+        void ToggleReviveDisabled(bool enable);
+        void ToggleDropLootOnDeath(bool enable);
+        void ToggleLoseXPOnDeath(bool enable);
+
+    private:
+        uint32 m_playerId;
+
+        bool m_reviveDisabled;
+        bool m_dropLootOnDeath;
+        bool m_loseXPOnDeath;
     };
 
     class HardcoreModule : public Module
@@ -179,6 +204,10 @@ namespace cmangos_module
         void OnAddItem(Loot* loot, LootItem* lootItem) override;
         void OnSendGold(Loot* loot, Player* player, uint32 gold, uint8 lootMethod) override;
 
+        // Gossip hooks
+        bool OnPreGossipHello(Player* player, Creature* creature) override;
+        bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action, const std::string& code, uint32 gossipListId) override;
+
         // Commands
         std::vector<ModuleChatCommand>* GetCommandTable() override;
         const char* GetChatCommandPrefix() const override { return "hardcore"; }
@@ -188,6 +217,12 @@ namespace cmangos_module
         bool HandleSpawnLootCommand(WorldSession* session, const std::string& args);
         bool HandleSpawnGraveCommand(WorldSession* session, const std::string& args);
         bool HandleLevelDownCommand(WorldSession* session, const std::string& args);
+        bool HandleToggleReviveCommand(WorldSession* session, const std::string& args);
+        bool HandleToggleDropLootCommand(WorldSession* session, const std::string& args);
+        bool HandleToggleLoseXPCommand(WorldSession* session, const std::string& args);
+
+        HardcorePlayerConfig* GetPlayerConfig(uint32 playerId);
+        HardcorePlayerConfig* GetPlayerConfig(const Player* player);
 
     private:
         // Loot methods
@@ -199,38 +234,26 @@ namespace cmangos_module
         void RemoveAllLoot();
         void CreateLoot(Player* player, Unit* killer);
         bool RemoveLoot(uint32 playerId, uint32 lootId);
-        uint32 GetMaxPlayerLoot() const;
-        float GetDropMoneyRate(Player* player) const;
-        float GetDropItemsRate(Player* player) const;
-        float GetDropGearRate(Player* player) const;
-        bool ShouldDropLoot(Player* player, Unit* killer = nullptr);
-        bool ShouldDropMoney(Player* player);
-        bool ShouldDropItems(Player* player);
-        bool ShouldDropGear(Player* player);
-        bool IsDropLootEnabled() const;
 
         // Grave methods
         void RemoveAllGraves();
         void CreateGrave(Player* player, Unit* killer = nullptr);
-        bool ShouldSpawnGrave(Player* player, Unit* killer = nullptr);
-        bool CanRevive(Player* player);
-        bool ShouldReviveOnGraveyard(Player* player);
         void GenerateMissingGraves();
         void PreLoadGraves();
         void LoadGraves();
 
         // Level methods
         void LevelDown(Player* player, Unit* killer = nullptr);
-        bool ShouldLevelDown(Player* player, Unit* killer = nullptr);
 
     public:
         Unit* GetKiller(Player* player) const;
         void  SetKiller(Player* player, Unit* killer);
 
     private:
-        std::map<uint32, std::map<uint32, HardcorePlayerLoot>> m_playersLoot;
-        std::map<uint32, HardcorePlayerGrave> m_playerGraves;
         std::map<uint32, ObjectGuid> m_lastPlayerDeaths;
+        std::unordered_map<uint32, HardcorePlayerGrave> m_playerGraves;
+        std::unordered_map<uint32, std::map<uint32, HardcorePlayerLoot>> m_playersLoot;
+        std::unordered_map<uint32, HardcorePlayerConfig> m_playerManagers;
     };
 }
 #endif

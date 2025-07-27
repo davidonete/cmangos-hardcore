@@ -38,3 +38,12 @@ CREATE TABLE `custom_hardcore_grave_gameobjects` (
   `phase_mask` int(11) NOT NULL DEFAULT '0' COMMENT 'Phase mask identifier',
   PRIMARY KEY (`id`, `player`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+DROP TABLE IF EXISTS `custom_hardcore_player_config`;
+CREATE TABLE `custom_hardcore_player_config` (
+  `id` int(11) unsigned NOT NULL,
+  `revive_disabled` boolean DEFAULT FALSE,
+  `drop_loot_on_death` boolean DEFAULT FALSE,
+  `lose_xp_on_death` boolean DEFAULT FALSE,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;

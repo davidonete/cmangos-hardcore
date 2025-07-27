@@ -6,6 +6,11 @@
 #       Default: 0 (Disabled)
 #                1 (Enabled)
 #
+#   Hardcore.PlayerConfig
+#       If each player can configure the level of challenge
+#       Default: 0 (Disabled)
+#                1 (Enabled)
+#
 #   Hardcore.SpawnGrave
 #       If a gravestone should spawn when the player dies. To reset the graves use the command ".hardcore resetgraves"
 #       Default: 1 (Enabled)
@@ -123,6 +128,7 @@
 ###################################################################################################################
 
 Hardcore.Enable = 0
+Hardcore.PlayerConfig = 0
 Hardcore.SpawnGrave = 0
 Hardcore.GraveGameObjectID = 61
 Hardcore.GraveMessage = "Shit happens. <PlayerName> | Well, this sucks. <PlayerName> | It is really dark down here. <PlayerName> | Finally some peace and quiet. <PlayerName> | Shhh! I am sleeping. <PlayerName> | At least we had fun. <PlayerName> | <PlayerName> was so brave until he forgot his parachute."
