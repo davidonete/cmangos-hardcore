@@ -13,8 +13,24 @@
 #include "playerbot/PlayerbotAI.h"
 #endif
 
+#include <iomanip>
+
 namespace cmangos_module
 {
+    time_t DateTimeToTime(const std::string& datetime)
+    {
+        time_t time;
+        std::tm tm = {};
+        std::istringstream ss(datetime);
+        ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
+        if (!ss.fail()) 
+        {
+            time = std::mktime(&tm);
+        }
+
+        return time;
+    }
+
     bool IsInRaid(const Player* player, const Unit* killer = nullptr)
     {
         if (player && player->IsInWorld())
@@ -1332,8 +1348,165 @@ namespace cmangos_module
         CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET pvp_disabled = '%d' WHERE id = '%d'", m_pvpDisabled ? 1 : 0, m_playerId);
     }
 
+    HardcorePlayerDeathLogEntry::HardcorePlayerDeathLogEntry(uint32 playerId, uint32 accountId, const std::string& playerName, uint32 level, uint32 areaId, uint32 mapId, uint32 killerId, const std::string& killerName, HardcoreDeathReason reason, time_t date)
+    : m_playerId(playerId)
+    , m_accountId(accountId)
+    , m_playerName(playerName)
+    , m_level(level)
+    , m_areaId(areaId)
+    , m_mapId(mapId)
+    , m_killerId(killerId)
+    , m_killerName(killerName)
+    , m_reason(reason)
+    , m_date(date)
+    {
+
+    }
+
+    std::string HardcorePlayerDeathLogEntry::GetDateTime() const
+    {
+        return TimeToTimestampStr(m_date);
+    }
+
+    std::string HardcorePlayerDeathLogEntry::GetZoneName(const Player* player) const
+    {
+        std::string zoneName = "";
+
+        const int localeIdx = player ? player->GetSession()->GetSessionDbcLocale() : sWorld.GetDefaultDbcLocale();
+        if (const AreaTableEntry* areaEntry = sAreaStore.LookupEntry(m_areaId))
+        {
+            zoneName = areaEntry->area_name[localeIdx];
+        }
+        else if (const MapEntry* mapEntry = sMapStore.LookupEntry(m_mapId))
+        {   
+            zoneName = mapEntry->name[localeIdx];
+        }
+
+        return zoneName;
+    }
+
+    std::string HardcorePlayerDeathLogEntry::GetNPCKillerName(const Player* player) const
+    {
+        std::string killerName = m_killerName;
+        if (player)
+        {
+            char const* name = "";
+            const int localeIdx = player->GetSession()->GetSessionDbLocaleIndex();
+            sObjectMgr.GetCreatureLocaleStrings(m_killerId, localeIdx, &name);
+
+            if (*name)
+            {
+                killerName = name;
+            }
+        }
+
+        return killerName;
+    }
+
+    void HardcorePlayerDeathLog::Load()
+    {
+        auto result = CharacterDatabase.PQuery("SELECT player, account, name, level, area, map, killer, killer_name, reason, date FROM custom_hardcore_player_deathlog");
+        if (result)
+        {
+            do
+            {
+                Field* fields = result->Fetch();
+                const uint32 playerId = fields[0].GetUInt32();
+                const uint32 accountId = fields[1].GetUInt32();
+                const std::string playerName = fields[2].GetCppString();
+                const uint32 level = fields[3].GetUInt32();
+                const uint32 areaId = fields[4].GetUInt32();
+                const uint32 mapId = fields[5].GetUInt32();
+                const uint32 killerId = fields[6].GetUInt32();
+                const std::string killerName = fields[7].GetCppString();
+                const HardcoreDeathReason reason = static_cast<HardcoreDeathReason>(fields[8].GetUInt32());
+                const time_t date = DateTimeToTime(fields[9].GetCppString());
+
+                entries.push_back(HardcorePlayerDeathLogEntry(playerId, accountId, playerName, level, areaId, mapId, killerId, killerName, reason, date));
+            } 
+            while (result->NextRow());
+        }
+    }
+
+    void HardcorePlayerDeathLog::OnDeath(const Player* player, const Unit* killer, int8 environmentDamageType)
+    {
+        if (player)
+        {
+            const uint32 playerId = player->GetObjectGuid().GetCounter();
+            const uint32 accountId = player->GetSession()->GetAccountId();
+            const std::string playerName = player->GetName();
+            const uint32 level = player->GetLevel();
+            const uint32 areaId = player->GetAreaId();
+            const uint32 mapId = player->GetMapId();
+            const uint32 killerId = killer ? (killer->IsPlayer() ? killer->GetObjectGuid().GetCounter() : killer->GetEntry()) : 0;
+            const std::string killerName = killer ? killer->GetName() : "";
+            
+            HardcoreDeathReason reason;
+            if (killer)
+            {
+                reason = killer->IsPlayer() ? HARDCORE_DEATH_REASON_PLAYER_KILL : HARDCORE_DEATH_REASON_NPC_KILL;
+            }
+            else if (environmentDamageType >= 0)
+            {
+                reason = static_cast<HardcoreDeathReason>(environmentDamageType + HARDCORE_DEATH_REASON_PLAYER_KILL + 1);
+            }
+
+            const time_t date = time(nullptr);
+
+            Add(playerId, accountId, playerName, level, areaId, mapId, killerId, killerName, reason, date);
+        }
+    }
+
+    std::vector<const HardcorePlayerDeathLogEntry*> HardcorePlayerDeathLog::GetEntries(HardcoreDeathFilter filter, uint8 amount, uint32 accountId /*= 0*/, std::string playerName /*= ""*/) const
+    {
+        std::string playerNameLowercase = playerName;
+        std::transform(playerNameLowercase.begin(), playerNameLowercase.end(), playerNameLowercase.begin(), [](unsigned char c) { return std::tolower(c); });
+
+        std::vector<const HardcorePlayerDeathLogEntry*> filteredEntries;
+        for (int i = entries.size() - 1; i >= 0; --i)
+        {
+            const HardcorePlayerDeathLogEntry* entry = &entries[i];
+            std::string entryPlayerNameLowercase = entry->GetPlayerName();
+            std::transform(entryPlayerNameLowercase.begin(), entryPlayerNameLowercase.end(), entryPlayerNameLowercase.begin(), [](unsigned char c) { return std::tolower(c); });
+
+            if ((filter == HARDCORE_DEATH_FILTER_PLAYER && playerNameLowercase == entryPlayerNameLowercase) ||
+                (filter == HARDCORE_DEATH_FILTER_ACCOUNT && accountId == entry->GetAccountId()) ||
+                (filter == HARDCORE_DEATH_FILTER_WORLD))
+            {
+                filteredEntries.push_back(entry);
+                if (filteredEntries.size() >= amount)
+                {
+                    break;
+                }
+            }
+        }
+
+        return filteredEntries;
+    }
+
+    void HardcorePlayerDeathLog::Add(uint32 playerId, uint32 accountId, const std::string& playerName, uint32 level, uint32 areaId, uint32 mapId, uint32 killerId, const std::string& killerName, HardcoreDeathReason reason, time_t date)
+    {
+        entries.push_back(HardcorePlayerDeathLogEntry(playerId, accountId, playerName, level, areaId, mapId, killerId, killerName, reason, date));
+
+        const HardcorePlayerDeathLogEntry& entry = entries.back();
+        const std::string dateTime = entry.GetDateTime();
+
+        CharacterDatabase.PExecute("INSERT INTO custom_hardcore_player_deathlog (player, account, name, level, area, map, killer, killer_name, reason, date) VALUES ('%d', '%d', '%s', '%d', '%d', '%d', '%d', '%s', '%d', '%s')",
+            playerId,
+            accountId,
+            playerName.c_str(),
+            level,
+            areaId,
+            mapId,
+            killerId,
+            killerName.c_str(),
+            static_cast<uint32>(reason),
+            dateTime.c_str());
+    }
+
     HardcoreModule::HardcoreModule()
     : Module("Hardcore", new HardcoreModuleConfig())
+    , m_getReactionToInternal(false)
     {
         
     }
@@ -1349,6 +1522,7 @@ namespace cmangos_module
         {
             PreLoadLoot();
             PreLoadGraves();
+            m_deathLog.Load();
         }
     }
 
@@ -1455,7 +1629,7 @@ namespace cmangos_module
 
     void HardcoreModule::OnDeath(Player* player, Unit* killer)
     {
-        if (GetConfig()->enabled)
+        if (GetConfig()->enabled && player && killer)
         {
             // Check if the killer is a pet and if so get the owner
             if (killer && killer->IsCreature() && killer->GetOwner())
@@ -1469,6 +1643,32 @@ namespace cmangos_module
             // Process loot and grave spawning
             CreateLoot(player, killer);
             CreateGrave(player, killer);
+
+            // Process death log entry
+            if (IsReviveDisabled(player, GetConfig(), GetPlayerConfig(player)))
+            {
+                m_deathLog.OnDeath(player, killer);
+            }
+        }
+    }
+
+    void HardcoreModule::OnDeath(Player* player, uint8 environmentalDamageType)
+    {
+        if (GetConfig()->enabled && player)
+        {
+            // Save the player killer for later use
+            Unit* killer = nullptr;
+            SetKiller(player, killer);
+
+            // Process loot and grave spawning
+            CreateLoot(player, killer);
+            CreateGrave(player, killer);
+
+            // Process death log entry
+            if (IsReviveDisabled(player, GetConfig(), GetPlayerConfig(player)))
+            {
+                m_deathLog.OnDeath(player, killer, environmentalDamageType);
+            }
         }
     }
 
@@ -2074,7 +2274,8 @@ namespace cmangos_module
             { "revive", std::bind(&HardcoreModule::HandleToggleReviveCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "droploot", std::bind(&HardcoreModule::HandleToggleDropLootCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "losexp", std::bind(&HardcoreModule::HandleToggleLoseXPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
-            { "pvp", std::bind(&HardcoreModule::HandleTogglePVPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER }
+            { "pvp", std::bind(&HardcoreModule::HandleTogglePVPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "deathlog", std::bind(&HardcoreModule::HandleDeathlogCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_PLAYER }
         };
 
         return &commandTable;
@@ -2295,6 +2496,156 @@ namespace cmangos_module
                     return true;
                 }
             }
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::HandleDeathlogCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player)
+        {
+            int amount = 5;
+            HardcoreDeathFilter filter = HARDCORE_DEATH_FILTER_WORLD;
+            uint32 accountId = session->GetAccountId();
+            std::string playerName = "";
+
+            if (!args.empty())
+            {
+                const auto arguments = helper::SplitString(args, " ");
+                
+                for (int i = 0; i < arguments.size(); ++i)
+                {
+                    const auto& argument = arguments[i];
+                    if (helper::IsValidNumberString(argument))
+                    {
+                        amount = std::stoi(argument);
+                    }
+                    else if (argument == "account")
+                    {
+                        filter = HARDCORE_DEATH_FILTER_ACCOUNT;
+                    }
+                    else if (argument == "player" && (i + 1 < arguments.size() - 1))
+                    {
+                        filter = HARDCORE_DEATH_FILTER_PLAYER;
+                        playerName = arguments[i + 1];
+                        i++;
+                    }
+                    else
+                    {
+                        filter = HARDCORE_DEATH_FILTER_PLAYER;
+                        playerName = argument;
+                    }
+                }
+            }
+
+            const auto entries = m_deathLog.GetEntries(filter, amount, accountId, playerName);
+            if (entries.empty())
+            {
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, "No entries have been found");
+                player->SendDirectMessage(data);
+            }
+            else
+            {
+                std::ostringstream message;
+                message << "Showing the " << amount << " most recent death entries";
+
+                if (filter == HARDCORE_DEATH_FILTER_WORLD)
+                {
+                    message << " of the world:";
+                }
+                else if (filter == HARDCORE_DEATH_FILTER_ACCOUNT)
+                {
+                    message << " of your account:";
+                }
+                else if (filter == HARDCORE_DEATH_FILTER_PLAYER)
+                {
+                    message << " of the player " << playerName << ":";
+                }
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, message.str().c_str());
+                player->SendDirectMessage(data);
+
+                for (const HardcorePlayerDeathLogEntry* entry : entries)
+                {
+                    const std::string& playerName = entry->GetPlayerName();
+                    const uint32 level = entry->GetLevel();
+                    const HardcoreDeathReason reason = entry->GetReason();
+                    const std::string zoneName = entry->GetZoneName(player);
+                    const std::string dateStr = secsToTimeString(time(nullptr) - entry->GetDate());
+
+                    std::ostringstream reasonStr;
+                    switch (reason)
+                    {
+                        case HARDCORE_DEATH_REASON_NPC_KILL:
+                        {
+                            reasonStr << "was killed by a " << entry->GetNPCKillerName(player);
+                            break;
+                        }
+
+                        case HARDCORE_DEATH_REASON_PLAYER_KILL:
+                        {
+                            reasonStr << "was killed by the player " << entry->GetKillerName();
+                            break;
+                        }
+
+                        case HARDCORE_DEATH_REASON_EXHAUSTED:
+                        {
+                            reasonStr << "died from exhaustion";
+                            break;
+                        }
+
+                        case HARDCORE_DEATH_REASON_DROWNING:
+                        {
+                            reasonStr << "drowned";
+                            break;
+                        }
+
+                        case HARDCORE_DEATH_REASON_FALL:
+                        case HARDCORE_DEATH_REASON_FALL_TO_VOID:
+                        {
+                            reasonStr << "fell into the abyss";
+                            break;
+                        }
+
+                        case HARDCORE_DEATH_REASON_LAVA:
+                        {
+                            reasonStr << "tried to swim in lava";
+                            break;
+                        }
+
+                        case HARDCORE_DEATH_REASON_SLIME:
+                        {
+                            reasonStr << "tried eat a slime";
+                            break;
+                        }
+
+                        case HARDCORE_DEATH_REASON_FIRE:
+                        {
+                            reasonStr << "was burned into a crisp";
+                            break;
+                        }
+
+                        default:
+                        {
+                            reasonStr << "died";
+                            break;
+                        }
+                    }
+
+                    std::ostringstream entryStr;
+                    entryStr << playerName << " " << reasonStr.str() << " at level " << level << (!zoneName.empty() ? " in " : "") << zoneName << ", " << dateStr << " ago";
+
+                    WorldPacket data;
+                    ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, entryStr.str().c_str());
+                    player->SendDirectMessage(data);
+                }
+            }
+
+            return true;
         }
 
         return false;

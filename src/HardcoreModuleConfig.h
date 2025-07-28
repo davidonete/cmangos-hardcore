@@ -31,6 +31,27 @@ namespace cmangos_module
         HARDCORE_DIALOGUE_OPTION_DECLINE
     };
 
+    enum HardcoreDeathReason
+    {
+        HARDCORE_DEATH_REASON_UNKNOWN = 0,
+        HARDCORE_DEATH_REASON_NPC_KILL,
+        HARDCORE_DEATH_REASON_PLAYER_KILL,
+        HARDCORE_DEATH_REASON_EXHAUSTED,
+        HARDCORE_DEATH_REASON_DROWNING,
+        HARDCORE_DEATH_REASON_FALL,
+        HARDCORE_DEATH_REASON_LAVA,
+        HARDCORE_DEATH_REASON_SLIME,
+        HARDCORE_DEATH_REASON_FIRE,
+        HARDCORE_DEATH_REASON_FALL_TO_VOID
+    };
+
+    enum HardcoreDeathFilter
+    {
+        HARDCORE_DEATH_FILTER_PLAYER = 0,
+        HARDCORE_DEATH_FILTER_ACCOUNT,
+        HARDCORE_DEATH_FILTER_WORLD
+    };
+
     class HardcoreModuleConfig : public ModuleConfig
     {
     public:

@@ -48,3 +48,19 @@ CREATE TABLE `custom_hardcore_player_config` (
   `pvp_disabled` boolean DEFAULT FALSE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+DROP TABLE IF EXISTS `custom_hardcore_player_deathlog`;
+CREATE TABLE `custom_hardcore_player_deathlog` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `player` int(11) unsigned NOT NULL,
+  `account` int(11) unsigned NOT NULL,
+  `name` char(100) NOT NULL,
+  `level` int(11) NOT NULL,
+  `area` int(11) unsigned NOT NULL,
+  `map` int(11) unsigned NOT NULL,
+  `killer` int(11) unsigned NOT NULL,
+  `killer_name` char(100) NOT NULL,
+  `reason` int(11) unsigned NOT NULL,
+  `date` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;

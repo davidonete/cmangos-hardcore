@@ -138,6 +138,9 @@
 #	.hardcore losexp true/false
 #		Enables/Disables the option to lose xp on death for the selected character
 #
+#	.hardcore deathlog <account/player_name> <amount>
+#		Shows the most recent deaths of players that died during the hardcore challenge
+#
 ###################################################################################################################
 
 Hardcore.Enable = 0

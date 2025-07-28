@@ -181,6 +181,53 @@ namespace cmangos_module
         bool m_pvpDisabled;
     };
 
+    class HardcorePlayerDeathLogEntry
+    {
+    public:
+        HardcorePlayerDeathLogEntry(uint32 playerId, uint32 accountId, const std::string& playerName, uint32 level, uint32 areaId, uint32 mapId, uint32 killerId, const std::string& killerName, HardcoreDeathReason reason, time_t date);
+
+        std::string GetDateTime() const;
+        uint32 GetAccountId() const { return m_accountId; }
+        const std::string& GetPlayerName() const { return m_playerName; }
+        uint32 GetLevel() const { return m_level; }
+        std::string GetZoneName(const Player* player) const;
+        uint32 GetKillerId() const { return m_killerId; }
+        const std::string& GetKillerName() const { return m_killerName; }
+        std::string GetNPCKillerName(const Player* player) const;
+        HardcoreDeathReason GetReason() const { return m_reason; }
+        time_t GetDate() const { return m_date; }
+
+    private:
+        uint32 m_playerId;
+        uint32 m_accountId;
+        std::string m_playerName;
+        uint32 m_level;
+        uint32 m_areaId;
+        uint32 m_mapId;
+        uint32 m_killerId;
+        std::string m_killerName;
+        HardcoreDeathReason m_reason;
+        time_t m_date;
+    };
+
+    class HardcorePlayerDeathLog
+    {
+    public:
+        HardcorePlayerDeathLog() {}
+
+        void Load();
+
+        void OnDeath(const Player* player, const Unit* killer = nullptr, int8 environmentDamageType = -1);
+
+        std::vector<const HardcorePlayerDeathLogEntry*> GetEntries(HardcoreDeathFilter filter, uint8 amount, uint32 accountId = 0, std::string playerName = "") const;
+
+    private:
+        void Add(uint32 playerId, uint32 accountId, const std::string& playerName, uint32 level, uint32 areaId, uint32 mapId, uint32 killerId, const std::string& killerName, HardcoreDeathReason reason, time_t date);
+
+    private:
+        std::vector<HardcorePlayerDeathLogEntry> entries;
+    };
+
     class HardcoreModule : public Module
     {
         friend HardcorePlayerLoot;
@@ -198,6 +245,7 @@ namespace cmangos_module
         bool OnPreResurrect(Player* player) override;
         void OnResurrect(Player* player) override;
         void OnDeath(Player* player, Unit* killer) override;
+        void OnDeath(Player* player, uint8 environmentalDamageType) override;
         void OnReleaseSpirit(Player* player, const WorldSafeLocsEntry* closestGrave) override;
         void OnStoreItem(Player* player, Loot* loot, Item* item) override;
 
@@ -227,6 +275,7 @@ namespace cmangos_module
         bool HandleToggleDropLootCommand(WorldSession* session, const std::string& args);
         bool HandleToggleLoseXPCommand(WorldSession* session, const std::string& args);
         bool HandleTogglePVPCommand(WorldSession* session, const std::string& args);
+        bool HandleDeathlogCommand(WorldSession* session, const std::string& args);
 
         HardcorePlayerConfig* GetPlayerConfig(uint32 playerId);
         HardcorePlayerConfig* GetPlayerConfig(const Player* player);
@@ -261,7 +310,7 @@ namespace cmangos_module
         std::unordered_map<uint32, HardcorePlayerGrave> m_playerGraves;
         std::unordered_map<uint32, std::map<uint32, HardcorePlayerLoot>> m_playersLoot;
         std::unordered_map<uint32, HardcorePlayerConfig> m_playerManagers;
-
+        HardcorePlayerDeathLog m_deathLog;
         bool m_getReactionToInternal;
     };
 }
