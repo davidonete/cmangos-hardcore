@@ -5,6 +5,8 @@ namespace cmangos_module
 {
     #define HARDCORE_NPC_ENTRY 190011
 
+    #define HARDCORE_SPELL_HARDCORE_CHALLENGE 33500
+
     enum HardcoreDialogueMessage
     {
         HARDCORE_DIALOGUE_MESSAGE_MAIN = 50900,

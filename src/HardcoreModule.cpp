@@ -1328,6 +1328,34 @@ namespace cmangos_module
     {
         m_reviveDisabled = enable;
         CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET revive_disabled = '%d' WHERE id = '%d'", m_reviveDisabled ? 1 : 0, m_playerId);
+
+        const ObjectGuid playerGUID = ObjectGuid(HIGHGUID_PLAYER, m_playerId);
+        if (Player* player = sObjectMgr.GetPlayer(playerGUID))
+        {
+            const bool hasAura = player->HasAura(HARDCORE_SPELL_HARDCORE_CHALLENGE);
+            if (enable)
+            {
+                if (!hasAura)
+                {
+                    if (const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(HARDCORE_SPELL_HARDCORE_CHALLENGE))
+                    {
+                        SpellAuraHolder* holder = CreateSpellAuraHolder(spellInfo, player, player);
+
+                        Aura* aur = CreateAura(spellInfo, SpellEffectIndex(0), 0, 0, holder, player);
+                        holder->AddAura(aur, SpellEffectIndex(0));
+
+                        if (!player->AddSpellAuraHolder(holder))
+                            delete holder;
+                        else
+                            holder->SetState(SPELLAURAHOLDER_STATE_READY);
+                    }
+                }
+            }
+            else if (hasAura)
+            {
+                player->RemoveAurasDueToSpell(HARDCORE_SPELL_HARDCORE_CHALLENGE);
+            }
+        }
     }
 
     void HardcorePlayerConfig::ToggleDropLootOnDeath(bool enable)
