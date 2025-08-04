@@ -11,6 +11,16 @@
 #       Default: 0 (Disabled)
 #                1 (Enabled)
 #
+#   Hardcore.BroadcastDeathGuild
+#       If the death of a player should be broadcasted to the guild
+#       Default: 0 (Disabled)
+#                1 (Enabled)
+#
+#   Hardcore.BroadcastDeathWorld
+#       If the death of a player should be broadcasted to the world
+#       Default: 0 (Disabled)
+#                1 (Enabled)
+#
 #   Hardcore.SpawnGrave
 #       If a gravestone should spawn when the player dies. To reset the graves use the command ".hardcore resetgraves"
 #       Default: 1 (Enabled)
@@ -145,6 +155,8 @@
 
 Hardcore.Enable = 0
 Hardcore.PlayerConfig = 0
+Hardcore.BroadcastDeathGuild = 0
+Hardcore.BroadcastDeathWorld = 0
 Hardcore.SpawnGrave = 0
 Hardcore.GraveGameObjectID = 61
 Hardcore.GraveMessage = "Shit happens. <PlayerName> | Well, this sucks. <PlayerName> | It is really dark down here. <PlayerName> | Finally some peace and quiet. <PlayerName> | Shhh! I am sleeping. <PlayerName> | At least we had fun. <PlayerName> | <PlayerName> was so brave until he forgot his parachute."

@@ -184,24 +184,29 @@ namespace cmangos_module
     class HardcorePlayerDeathLogEntry
     {
     public:
-        HardcorePlayerDeathLogEntry(uint32 playerId, uint32 accountId, const std::string& playerName, uint32 level, uint32 areaId, uint32 mapId, uint32 killerId, const std::string& killerName, HardcoreDeathReason reason, time_t date);
+        HardcorePlayerDeathLogEntry(uint32 playerId, uint32 accountId, const std::string& playerName, uint32 level, uint32 zoneId, uint32 areaId, uint32 mapId, uint32 killerId, const std::string& killerName, HardcoreDeathReason reason, time_t date);
 
         std::string GetDateTime() const;
         uint32 GetAccountId() const { return m_accountId; }
         const std::string& GetPlayerName() const { return m_playerName; }
         uint32 GetLevel() const { return m_level; }
         std::string GetZoneName(const Player* player) const;
+        std::string GetAreaName(const Player* player) const;
+        std::string GetMapName(const Player* player) const;
         uint32 GetKillerId() const { return m_killerId; }
         const std::string& GetKillerName() const { return m_killerName; }
         std::string GetNPCKillerName(const Player* player) const;
         HardcoreDeathReason GetReason() const { return m_reason; }
         time_t GetDate() const { return m_date; }
 
+        std::string GetMessage(const Player* player) const;
+
     private:
         uint32 m_playerId;
         uint32 m_accountId;
         std::string m_playerName;
         uint32 m_level;
+        uint32 m_zoneId;
         uint32 m_areaId;
         uint32 m_mapId;
         uint32 m_killerId;
@@ -217,12 +222,12 @@ namespace cmangos_module
 
         void Load();
 
-        void OnDeath(const Player* player, const Unit* killer = nullptr, int8 environmentDamageType = -1);
+        void OnDeath(Player* player, const HardcoreModuleConfig* moduleConfig, const Unit* killer = nullptr, int8 environmentDamageType = -1);
 
         std::vector<const HardcorePlayerDeathLogEntry*> GetEntries(HardcoreDeathFilter filter, uint8 amount, uint32 accountId = 0, std::string playerName = "") const;
 
     private:
-        void Add(uint32 playerId, uint32 accountId, const std::string& playerName, uint32 level, uint32 areaId, uint32 mapId, uint32 killerId, const std::string& killerName, HardcoreDeathReason reason, time_t date);
+        void Add(uint32 playerId, uint32 accountId, const std::string& playerName, uint32 level, uint32 zoneId, uint32 areaId, uint32 mapId, uint32 killerId, const std::string& killerName, HardcoreDeathReason reason, time_t date);
 
     private:
         std::vector<HardcorePlayerDeathLogEntry> entries;

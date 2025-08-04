@@ -7,6 +7,8 @@ namespace cmangos_module
     : ModuleConfig("hardcore.conf")
     , enabled(false)
     , playerConfig(false)
+    , broadcastDeathGuild(false)
+    , broadcastDeathWorld(false)
     , spawnGrave(false)
     , graveGameObjectId(0U)
     , graveMessage("")
@@ -42,6 +44,8 @@ namespace cmangos_module
     {
         enabled = config.GetBoolDefault("Hardcore.Enable", false);
         playerConfig = config.GetBoolDefault("Hardcore.PlayerConfig", false);
+        broadcastDeathGuild = config.GetBoolDefault("Hardcore.BroadcastDeathGuild", false);
+        broadcastDeathWorld = config.GetBoolDefault("Hardcore.BroadcastDeathWorld", false);
         spawnGrave = config.GetBoolDefault("Hardcore.SpawnGrave", false);
         graveGameObjectId = config.GetIntDefault("Hardcore.GraveGameObjectID", 0U);
         graveMessage = config.GetStringDefault("Hardcore.GraveMessage", "Here lies <PlayerName>");

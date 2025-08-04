@@ -56,6 +56,7 @@ CREATE TABLE `custom_hardcore_player_deathlog` (
   `account` int(11) unsigned NOT NULL,
   `name` char(100) NOT NULL,
   `level` int(11) NOT NULL,
+  `zone` int(11) unsigned NOT NULL,
   `area` int(11) unsigned NOT NULL,
   `map` int(11) unsigned NOT NULL,
   `killer` int(11) unsigned NOT NULL,

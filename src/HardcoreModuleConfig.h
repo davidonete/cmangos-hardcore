@@ -65,6 +65,8 @@ namespace cmangos_module
     public:
         bool enabled;
         bool playerConfig;
+        bool broadcastDeathGuild;
+        bool broadcastDeathWorld;
         bool spawnGrave;
         uint32 graveGameObjectId;
         std::string graveMessage;
