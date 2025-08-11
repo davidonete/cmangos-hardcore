@@ -312,6 +312,58 @@ namespace cmangos_module
         return false;
     }
 
+    bool CanInviteToGroup(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig)
+    {
+        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound)
+        {
+            if (playerConfig && otherPlayerConfig)
+            {
+                const Player* player = playerConfig->GetPlayerConst();
+                const Player* otherPlayer = playerConfig->GetPlayer();
+                if (player && otherPlayer)
+                {
+                    const uint32 playerLevel = player->GetLevel();
+                    const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+                    return playerLevel - 1 <= otherPlayerLevel && 
+                           playerLevel + 1 >= otherPlayerLevel &&
+                           HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    bool CanUseAuctionHouse(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound && playerConfig)
+        {
+            return !playerConfig->IsSelfFound();
+        }
+
+        return true;
+    }
+
+    bool CanUseMailBox(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound && playerConfig)
+        {
+            return !playerConfig->IsSelfFound();
+        }
+
+        return true;
+    }
+
+    bool CanTrade(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound && playerConfig)
+        {
+            return !playerConfig->IsSelfFound();
+        }
+
+        return true;
+    }
+
     HardcoreLootItem::HardcoreLootItem(uint32 id, uint8 amount)
     : m_id(id)
     , m_isGear(false)
@@ -1293,7 +1345,7 @@ namespace cmangos_module
         HardcorePlayerConfig playerConfig(playerId);
         if (playerId > 0)
         {
-            auto result = CharacterDatabase.PQuery("SELECT revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled FROM custom_hardcore_player_config WHERE id = '%d'", playerId);
+            auto result = CharacterDatabase.PQuery("SELECT revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled, self_found FROM custom_hardcore_player_config WHERE id = '%d'", playerId);
             if (result)
             {
                 Field* fields = result->Fetch();
@@ -1301,6 +1353,7 @@ namespace cmangos_module
                 playerConfig.m_dropLootOnDeath = fields[1].GetBool();
                 playerConfig.m_loseXPOnDeath = fields[2].GetBool();
                 playerConfig.m_pvpDisabled = fields[3].GetBool();
+                playerConfig.m_selfFound = fields[4].GetBool();
             }
             else
             {
@@ -1309,12 +1362,13 @@ namespace cmangos_module
                 playerConfig.m_loseXPOnDeath = false;
                 playerConfig.m_pvpDisabled = false;
 
-                CharacterDatabase.PExecute("INSERT INTO custom_hardcore_player_config (id, revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled) VALUES ('%d', '%d', '%d', '%d', '%d')",
+                CharacterDatabase.PExecute("INSERT INTO custom_hardcore_player_config (id, revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled, self_found) VALUES ('%d', '%d', '%d', '%d', '%d', '%d')",
                     playerId,
                     playerConfig.m_reviveDisabled ? 1 : 0,
                     playerConfig.m_dropLootOnDeath ? 1 : 0,
                     playerConfig.m_loseXPOnDeath ? 1 : 0,
-                    playerConfig.m_pvpDisabled ? 1 : 0);
+                    playerConfig.m_pvpDisabled ? 1 : 0,
+                    playerConfig.m_selfFound ? 1 : 0);
             }
         }
 
@@ -1330,34 +1384,8 @@ namespace cmangos_module
     {
         m_reviveDisabled = enable;
         CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET revive_disabled = '%d' WHERE id = '%d'", m_reviveDisabled ? 1 : 0, m_playerId);
-
-        const ObjectGuid playerGUID = ObjectGuid(HIGHGUID_PLAYER, m_playerId);
-        if (Player* player = sObjectMgr.GetPlayer(playerGUID))
-        {
-            const bool hasAura = player->HasAura(HARDCORE_SPELL_HARDCORE_CHALLENGE);
-            if (enable)
-            {
-                if (!hasAura)
-                {
-                    if (const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(HARDCORE_SPELL_HARDCORE_CHALLENGE))
-                    {
-                        SpellAuraHolder* holder = CreateSpellAuraHolder(spellInfo, player, player);
-
-                        Aura* aur = CreateAura(spellInfo, SpellEffectIndex(0), 0, 0, holder, player);
-                        holder->AddAura(aur, SpellEffectIndex(0));
-
-                        if (!player->AddSpellAuraHolder(holder))
-                            delete holder;
-                        else
-                            holder->SetState(SPELLAURAHOLDER_STATE_READY);
-                    }
-                }
-            }
-            else if (hasAura)
-            {
-                player->RemoveAurasDueToSpell(HARDCORE_SPELL_HARDCORE_CHALLENGE);
-            }
-        }
+        
+        ToggleAura(enable, HARDCORE_SPELL_HARDCORE_CHALLENGE);
     }
 
     void HardcorePlayerConfig::ToggleDropLootOnDeath(bool enable)
@@ -1376,6 +1404,67 @@ namespace cmangos_module
     {
         m_pvpDisabled = enable;
         CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET pvp_disabled = '%d' WHERE id = '%d'", m_pvpDisabled ? 1 : 0, m_playerId);
+    }
+
+    void HardcorePlayerConfig::ToggleSelfFound(bool enable)
+    {
+        m_selfFound = enable;
+        CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET self_found = '%d' WHERE id = '%d'", m_selfFound ? 1 : 0, m_playerId);
+    
+        ToggleAura(enable, HARDCORE_SPELL_SELF_FOUND_CHALLENGE);
+    }
+
+    Player* HardcorePlayerConfig::GetPlayer() const
+    {
+        const ObjectGuid playerGUID = ObjectGuid(HIGHGUID_PLAYER, m_playerId);
+        return sObjectMgr.GetPlayer(playerGUID);
+    }
+
+    const Player* HardcorePlayerConfig::GetPlayerConst() const
+    {
+        const ObjectGuid playerGUID = ObjectGuid(HIGHGUID_PLAYER, m_playerId);
+        return sObjectMgr.GetPlayer(playerGUID);
+    }
+
+    bool HardcorePlayerConfig::HasSameChallenges(const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig)
+    {
+        return playerConfig && 
+               otherPlayerConfig &&
+               playerConfig->IsReviveDisabled() == otherPlayerConfig->IsReviveDisabled() &&
+               playerConfig->IsSelfFound() == otherPlayerConfig->IsSelfFound();
+    }
+
+    void HardcorePlayerConfig::ToggleAura(bool enable, uint32 spellId)
+    {
+        if (Player* player = GetPlayer())
+        {
+            const bool hasAura = player->HasAura(spellId);
+            if (enable)
+            {
+                if (!hasAura)
+                {
+                    if (const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId))
+                    {
+                        SpellAuraHolder* holder = CreateSpellAuraHolder(spellInfo, player, player);
+                        Aura* aur = CreateAura(spellInfo, SpellEffectIndex(0), 0, 0, holder, player);
+                        holder->AddAura(aur, SpellEffectIndex(0));
+
+                        if (player->AddSpellAuraHolder(holder))
+                        {
+                            holder->SetState(SPELLAURAHOLDER_STATE_READY);
+                        }
+                        else
+                        {
+                            delete holder;
+                        }
+                    }
+                }
+            }
+            else if (hasAura)
+            {
+                player->RemoveAurasDueToSpell(spellId);
+            }
+        }
     }
 
     HardcorePlayerDeathLogEntry::HardcorePlayerDeathLogEntry(uint32 playerId, uint32 accountId, const std::string& playerName, uint32 level, uint32 zoneId, uint32 areaId, uint32 mapId, uint32 killerId, const std::string& killerName, HardcoreDeathReason reason, time_t date)
@@ -2237,6 +2326,26 @@ namespace cmangos_module
         }
     }
 
+    bool HardcoreModule::OnPreInviteMember(Group* group, Player* player, Player* recipient)
+    {
+        const HardcoreModuleConfig* moduleConfig = GetConfig();
+        if (moduleConfig->enabled && (moduleConfig->selfFound || moduleConfig->reviveDisabled))
+        {
+            if (!CanInviteToGroup(moduleConfig, GetPlayerConfig(player), GetPlayerConfig(recipient)))
+            {
+                std::ostringstream notification;
+                notification << "You can't invite other players that are not doing the same challenges as you";
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool HardcoreModule::OnPreGossipHello(Player* player, Creature* creature)
     {
         const HardcoreModuleConfig* moduleConfig = GetConfig();
@@ -2274,6 +2383,11 @@ namespace cmangos_module
                     if (moduleConfig->disablePVP)
                     {
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                    }
+
+                    if (moduleConfig->selfFound)
+                    {
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
                     }
 
                     playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN, creature->GetObjectGuid());
@@ -2327,6 +2441,15 @@ namespace cmangos_module
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
                         playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_LOSE_XP_CHALLENGE, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_SELF_FOUND_CHALLENGE, creature->GetObjectGuid());
                         return true;
                     }
 
@@ -2411,6 +2534,33 @@ namespace cmangos_module
                         return true;
                     }
 
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            if (playerConfig->IsSelfFound())
+                            {
+                                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ALREADY_TAKEN_CHALLENGE, creature->GetObjectGuid());
+                            }
+                            else
+                            {
+                                if (player->GetLevel() == 1)
+                                {
+                                    playerConfig->ToggleSelfFound(true);
+                                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ACCEPT_CHALLENGE, creature->GetObjectGuid());
+                                }
+                                else
+                                {
+                                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                                }
+                            }
+                        }
+
+                        return true;
+                    }
+
                     case HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE:
                     {
                         OnPreGossipHello(player, creature);
@@ -2472,6 +2622,7 @@ namespace cmangos_module
             { "droploot", std::bind(&HardcoreModule::HandleToggleDropLootCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "losexp", std::bind(&HardcoreModule::HandleToggleLoseXPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "pvp", std::bind(&HardcoreModule::HandleTogglePVPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "selffound", std::bind(&HardcoreModule::HandleToggleSelfFoundCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "deathlog", std::bind(&HardcoreModule::HandleDeathlogCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_PLAYER }
         };
 
@@ -2698,6 +2849,42 @@ namespace cmangos_module
         return false;
     }
 
+    bool HardcoreModule::HandleToggleSelfFoundCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player)
+        {
+            if (!args.empty())
+            {
+                const bool enable = args == "1" || args == "true" ? true : false;
+
+                // Get the selected player or self
+                const Player* target = player;
+                const ObjectGuid& guid = player->GetSelectionGuid();
+                if (guid)
+                {
+                    target = sObjectMgr.GetPlayer(guid);
+                }
+
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+                {
+                    playerConfig->ToggleSelfFound(enable);
+
+                    std::ostringstream notification;
+                    notification << "Self found has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+
+                    WorldPacket data;
+                    ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                    player->SendDirectMessage(data);
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     bool HardcoreModule::HandleDeathlogCommand(WorldSession* session, const std::string& args)
     {
         const Player* player = session ? session->GetPlayer() : nullptr;
@@ -2869,6 +3056,28 @@ namespace cmangos_module
                     }
                 }
 
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::OnCanCheckMailBox(Player* player, const ObjectGuid& mailboxGuid, bool& outResult)
+    {
+        const HardcoreModuleConfig* moduleConfig = GetConfig();
+        if (moduleConfig->enabled && moduleConfig->selfFound)
+        {
+            if (!CanUseMailBox(moduleConfig, GetPlayerConfig(player)))
+            {
+                std::ostringstream notification;
+                notification << "You can't use the mailbox during the self found challenge";
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+
+                outResult = false;
                 return true;
             }
         }

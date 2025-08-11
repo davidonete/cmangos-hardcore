@@ -36,6 +36,7 @@ namespace cmangos_module
     , levelDownMinLevel(0)
     , levelDownMaxLevel(0)
     , disablePVP(false)
+    , selfFound(false)
     {
 
     }
@@ -73,6 +74,7 @@ namespace cmangos_module
         levelDownMinLevel = config.GetIntDefault("Hardcore.LevelDownMinLevel", 1);
         levelDownMaxLevel = config.GetIntDefault("Hardcore.LevelDownMaxLevel", DEFAULT_MAX_LEVEL);
         disablePVP = config.GetBoolDefault("Hardcore.DisablePVP", false);
+        selfFound = config.GetBoolDefault("Hardcore.SelfFound", false);
         return true;
     }
 

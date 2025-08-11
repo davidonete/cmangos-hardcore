@@ -46,6 +46,7 @@ CREATE TABLE `custom_hardcore_player_config` (
   `drop_loot_on_death` boolean DEFAULT FALSE,
   `lose_xp_on_death` boolean DEFAULT FALSE,
   `pvp_disabled` boolean DEFAULT FALSE,
+  `self_found` boolean DEFAULT FALSE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 

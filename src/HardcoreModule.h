@@ -166,11 +166,21 @@ namespace cmangos_module
         bool ShouldDropLootOnDeath() const { return m_dropLootOnDeath; }
         bool ShouldLoseXPOnDeath() const { return m_loseXPOnDeath; }
         bool IsPVPDisabled() const { return m_pvpDisabled; }
+        bool IsSelfFound() const { return m_selfFound; }
 
         void ToggleReviveDisabled(bool enable);
         void ToggleDropLootOnDeath(bool enable);
         void ToggleLoseXPOnDeath(bool enable);
         void TogglePVPDisabled(bool enable);
+        void ToggleSelfFound(bool enable);
+
+        static bool HasSameChallenges(const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig);
+
+        Player* GetPlayer() const;
+        const Player* GetPlayerConst() const;
+
+    private:
+        void ToggleAura(bool enable, uint32 spellId);
 
     private:
         uint32 m_playerId;
@@ -179,6 +189,7 @@ namespace cmangos_module
         bool m_dropLootOnDeath;
         bool m_loseXPOnDeath;
         bool m_pvpDisabled;
+        bool m_selfFound;
     };
 
     class HardcorePlayerDeathLogEntry
@@ -257,11 +268,17 @@ namespace cmangos_module
         // Unit hooks
         bool OnGetReactionTo(const Unit* unit, const Unit* target, ReputationRank& outReaction) override;
 
+        // Game object hooks
+        bool OnCanCheckMailBox(Player* player, const ObjectGuid& mailboxGuid, bool& outResult) override;
+
         // Loot hooks
         bool OnFillLoot(Loot* loot, Player* owner) override;
         bool OnGenerateMoneyLoot(Loot* loot, uint32& outMoney) override;
         void OnAddItem(Loot* loot, LootItem* lootItem) override;
         void OnSendGold(Loot* loot, Player* player, uint32 gold, uint8 lootMethod) override;
+
+        // Group hooks
+        bool OnPreInviteMember(Group* group, Player* player, Player* recipient) override;
 
         // Gossip hooks
         bool OnPreGossipHello(Player* player, Creature* creature) override;
@@ -280,6 +297,7 @@ namespace cmangos_module
         bool HandleToggleDropLootCommand(WorldSession* session, const std::string& args);
         bool HandleToggleLoseXPCommand(WorldSession* session, const std::string& args);
         bool HandleTogglePVPCommand(WorldSession* session, const std::string& args);
+        bool HandleToggleSelfFoundCommand(WorldSession* session, const std::string& args);
         bool HandleDeathlogCommand(WorldSession* session, const std::string& args);
 
         HardcorePlayerConfig* GetPlayerConfig(uint32 playerId);

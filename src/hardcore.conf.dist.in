@@ -129,6 +129,10 @@
 #       If the player can disable pvp during the hardcore challenge
 #       Default: 0
 #
+#   Hardcore.SelfFound
+#       If the player is allowed to interact with others (mail/auction house/group/trade)
+#       Default: 0
+#
 #   COMMANDS
 #	.hardcore reset
 #		Resets the state of the hardcore mod (loot and graves). Recommended to delete WDB folder and server reset after this
@@ -147,6 +151,12 @@
 #
 #	.hardcore losexp true/false
 #		Enables/Disables the option to lose xp on death for the selected character
+#
+#	.hardcore pvp true/false
+#		Enables/Disables the pvp combat for the selected character
+#
+#	.hardcore selffound true/false
+#		Enables/Disables the self found challenge for the selected character
 #
 #	.hardcore deathlog <account/player_name> <amount>
 #		Shows the most recent deaths of players that died during the hardcore challenge
@@ -182,3 +192,4 @@ Hardcore.LevelDownMinLevel = 1
 Hardcore.DropMinLevel = 1
 #Hardcore.DropMaxLevel = 60
 Hardcore.DisablePVP = 0
+Hardcore.SelfFound = 0
