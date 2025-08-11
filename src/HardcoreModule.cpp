@@ -314,7 +314,7 @@ namespace cmangos_module
 
     bool CanInviteToGroup(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig)
     {
-        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound)
+        if (moduleConfig && moduleConfig->enabled && (moduleConfig->selfFound || moduleConfig->reviveDisabled))
         {
             if (playerConfig && otherPlayerConfig)
             {
@@ -354,11 +354,23 @@ namespace cmangos_module
         return true;
     }
 
-    bool CanTrade(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    bool CanTrade(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig)
     {
-        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound && playerConfig)
+        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound)
         {
-            return !playerConfig->IsSelfFound();
+            if (playerConfig && otherPlayerConfig)
+            {
+                const Player* player = playerConfig->GetPlayerConst();
+                const Player* otherPlayer = playerConfig->GetPlayer();
+                if (player && otherPlayer)
+                {
+                    const uint32 playerLevel = player->GetLevel();
+                    const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+                    return playerLevel - 1 <= otherPlayerLevel && 
+                           playerLevel + 1 >= otherPlayerLevel && 
+                           HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                }
+            }
         }
 
         return true;
@@ -2329,7 +2341,7 @@ namespace cmangos_module
     bool HardcoreModule::OnPreInviteMember(Group* group, Player* player, Player* recipient)
     {
         const HardcoreModuleConfig* moduleConfig = GetConfig();
-        if (moduleConfig->enabled && (moduleConfig->selfFound || moduleConfig->reviveDisabled))
+        if (moduleConfig->enabled)
         {
             if (!CanInviteToGroup(moduleConfig, GetPlayerConfig(player), GetPlayerConfig(recipient)))
             {
@@ -2352,52 +2364,67 @@ namespace cmangos_module
         if (moduleConfig->enabled && player && creature)
         {
             // Check if speaking with the hardcore npc
-            if (creature->GetEntry() != HARDCORE_NPC_ENTRY)
-                return false;
-
+            if (creature->GetEntry() == HARDCORE_NPC_ENTRY)
+            {
 #ifdef ENABLE_PLAYERBOTS
-            if (sRandomPlayerbotMgr.IsFreeBot(player))
-                return false;
+                if (sRandomPlayerbotMgr.IsFreeBot(player))
+                {
+                    return false;
+                }
 #endif
 
-            if (PlayerMenu* playerMenu = player->GetPlayerMenu())
+                if (PlayerMenu* playerMenu = player->GetPlayerMenu())
+                {
+                    playerMenu->ClearMenus();
+                    if (moduleConfig->playerConfig)
+                    {
+                        if (moduleConfig->reviveDisabled)
+                        {
+                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
+                        }
+
+                        if (moduleConfig->IsDropLootEnabled())
+                        {
+                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
+                        }
+
+                        if (moduleConfig->levelDownPct > 0.0f)
+                        {
+                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
+                        }
+
+                        if (moduleConfig->disablePVP)
+                        {
+                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                        }
+
+                        if (moduleConfig->selfFound)
+                        {
+                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
+                        }
+
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN, creature->GetObjectGuid());
+                    }
+                    else
+                    {
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN_DISABLED, creature->GetObjectGuid());
+                    }
+
+                    return true;
+                }
+            }
+            else if (creature->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER))
             {
-                playerMenu->ClearMenus();
-                if (moduleConfig->playerConfig)
+                if (!CanUseAuctionHouse(moduleConfig, GetPlayerConfig(player)))
                 {
-                    if (moduleConfig->reviveDisabled)
-                    {
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
-                    }
+                    std::ostringstream notification;
+                    notification << "You can't use the auction house while doing the self found challenge";
 
-                    if (moduleConfig->IsDropLootEnabled())
-                    {
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
-                    }
-
-                    if (moduleConfig->levelDownPct > 0.0f)
-                    {
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
-                    }
-
-                    if (moduleConfig->disablePVP)
-                    {
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
-                    }
-
-                    if (moduleConfig->selfFound)
-                    {
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
-                    }
-
-                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN, creature->GetObjectGuid());
+                    WorldPacket data;
+                    ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                    player->SendDirectMessage(data);
+                    return true;
                 }
-                else
-                {
-                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN_DISABLED, creature->GetObjectGuid());
-                }
-
-                return true;
             }
         }
 
@@ -3027,6 +3054,26 @@ namespace cmangos_module
                 }
             }
         }
+    }
+
+    bool HardcoreModule::OnPreHandleInitializeTrade(Player* player, Player* trader)
+    {
+        const HardcoreModuleConfig* moduleConfig = GetConfig();
+        if (moduleConfig->enabled && moduleConfig->selfFound)
+        {
+            if (!CanTrade(moduleConfig, GetPlayerConfig(player), GetPlayerConfig(trader)))
+            {
+                std::ostringstream notification;
+                notification << "You can't trade with other players that are not doing the same challenges as you";
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     bool HardcoreModule::OnGetReactionTo(const Unit* unit, const Unit* target, ReputationRank& outReaction)

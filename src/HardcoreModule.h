@@ -264,6 +264,7 @@ namespace cmangos_module
         void OnDeath(Player* player, uint8 environmentalDamageType) override;
         void OnReleaseSpirit(Player* player, const WorldSafeLocsEntry* closestGrave) override;
         void OnStoreItem(Player* player, Loot* loot, Item* item) override;
+        bool OnPreHandleInitializeTrade(Player* player, Player* trader) override;
 
         // Unit hooks
         bool OnGetReactionTo(const Unit* unit, const Unit* target, ReputationRank& outReaction) override;
