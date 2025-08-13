@@ -316,18 +316,23 @@ namespace cmangos_module
     {
         if (moduleConfig && moduleConfig->enabled && (moduleConfig->selfFound || moduleConfig->reviveDisabled))
         {
-            if (playerConfig && otherPlayerConfig)
+            if (playerConfig && (playerConfig->IsSelfFound() || playerConfig->IsReviveDisabled()))
             {
-                const Player* player = playerConfig->GetPlayerConst();
-                const Player* otherPlayer = playerConfig->GetPlayer();
-                if (player && otherPlayer)
+                if (otherPlayerConfig)
                 {
-                    const uint32 playerLevel = player->GetLevel();
-                    const uint32 otherPlayerLevel = otherPlayer->GetLevel();
-                    return playerLevel - 1 <= otherPlayerLevel && 
-                           playerLevel + 1 >= otherPlayerLevel &&
-                           HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                    const Player* player = playerConfig->GetPlayerConst();
+                    const Player* otherPlayer = playerConfig->GetPlayer();
+                    if (player && otherPlayer)
+                    {
+                        const uint32 playerLevel = player->GetLevel();
+                        const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+                        return playerLevel - 1 <= otherPlayerLevel && 
+                               playerLevel + 1 >= otherPlayerLevel &&
+                               HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                    }
                 }
+
+                return false;
             }
         }
 
@@ -358,18 +363,23 @@ namespace cmangos_module
     {
         if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound)
         {
-            if (playerConfig && otherPlayerConfig)
+            if (playerConfig && playerConfig->IsSelfFound())
             {
-                const Player* player = playerConfig->GetPlayerConst();
-                const Player* otherPlayer = playerConfig->GetPlayer();
-                if (player && otherPlayer)
+                if (otherPlayerConfig)
                 {
-                    const uint32 playerLevel = player->GetLevel();
-                    const uint32 otherPlayerLevel = otherPlayer->GetLevel();
-                    return playerLevel - 1 <= otherPlayerLevel && 
-                           playerLevel + 1 >= otherPlayerLevel && 
-                           HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                    const Player* player = playerConfig->GetPlayerConst();
+                    const Player* otherPlayer = playerConfig->GetPlayer();
+                    if (player && otherPlayer)
+                    {
+                        const uint32 playerLevel = player->GetLevel();
+                        const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+                        return playerLevel - 1 <= otherPlayerLevel && 
+                               playerLevel + 1 >= otherPlayerLevel &&
+                               HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                    }
                 }
+
+                return false;
             }
         }
 
