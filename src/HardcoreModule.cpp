@@ -285,7 +285,7 @@ namespace cmangos_module
         if (player && moduleConfig)
         {
 #ifdef ENABLE_PLAYERBOTS
-            // Bots always should revive using ghosts
+            // Bots should always revive
             if (!player->isRealPlayer())
                 return false;
 #endif
@@ -301,7 +301,7 @@ namespace cmangos_module
         if (player && moduleConfig && moduleConfig->enabled && moduleConfig->reviveOnGraveyard)
         {
 #ifdef ENABLE_PLAYERBOTS
-            // Bots always should revive using ghosts
+            // Bots should always revive using ghosts
             if (!player->isRealPlayer())
                 return false;
 #endif
@@ -312,26 +312,60 @@ namespace cmangos_module
         return false;
     }
 
-    bool CanInviteToGroup(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig)
+    bool CanInviteToGroup(const Player* player, const Player* otherPlayer, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig)
     {
-        if (moduleConfig && moduleConfig->enabled && (moduleConfig->selfFound || moduleConfig->reviveDisabled))
+        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound && player && otherPlayer)
         {
-            if (playerConfig && (playerConfig->IsSelfFound() || playerConfig->IsReviveDisabled()))
-            {
-                if (otherPlayerConfig)
-                {
-                    const Player* player = playerConfig->GetPlayerConst();
-                    const Player* otherPlayer = playerConfig->GetPlayer();
-                    if (player && otherPlayer)
-                    {
-                        const uint32 playerLevel = player->GetLevel();
-                        const uint32 otherPlayerLevel = otherPlayer->GetLevel();
-                        return playerLevel - 1 <= otherPlayerLevel && 
-                               playerLevel + 1 >= otherPlayerLevel &&
-                               HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
-                    }
-                }
+#ifdef ENABLE_PLAYERBOTS
+            // Bots can always group between them
+            if (!player->isRealPlayer() && !otherPlayer->isRealPlayer())
+                return true;
+#endif
 
+            if (moduleConfig->playerConfig) 
+            {
+                if (playerConfig && otherPlayerConfig) 
+                {
+                    const uint32 playerLevel = player->GetLevel();
+                    const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+                    return playerLevel - 1 <= otherPlayerLevel && 
+                           playerLevel + 1 >= otherPlayerLevel &&
+                           HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                }
+                else if ((playerConfig && !otherPlayerConfig) || (!playerConfig && otherPlayerConfig))
+                {
+                    const HardcorePlayerConfig* config = playerConfig ? playerConfig : otherPlayerConfig;
+                    return !config->IsReviveDisabled() && !config->IsSelfFound();
+                }
+            }
+            else 
+            {
+                const uint32 playerLevel = player->GetLevel();
+                const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+                return playerLevel - 1 <= otherPlayerLevel && 
+                       playerLevel + 1 >= otherPlayerLevel;
+            }
+        }
+
+        return true;
+    }
+
+    bool CanUseAuctionHouse(const Player* player, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
+    {
+        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound && player)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            // Bots can always use auction house
+            if (!player->isRealPlayer())
+                return true;
+#endif
+
+            if (moduleConfig->playerConfig && playerConfig) 
+            {
+                return !playerConfig->IsSelfFound();
+            }
+            else 
+            {
                 return false;
             }
         }
@@ -339,47 +373,61 @@ namespace cmangos_module
         return true;
     }
 
-    bool CanUseAuctionHouse(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
-    {
-        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound && playerConfig)
-        {
-            return !playerConfig->IsSelfFound();
-        }
-
-        return true;
-    }
-
-    bool CanUseMailBox(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
-    {
-        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound && playerConfig)
-        {
-            return !playerConfig->IsSelfFound();
-        }
-
-        return true;
-    }
-
-    bool CanTrade(const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig)
+    bool CanUseMailBox(const Player* player, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
     {
         if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound)
         {
-            if (playerConfig && playerConfig->IsSelfFound())
-            {
-                if (otherPlayerConfig)
-                {
-                    const Player* player = playerConfig->GetPlayerConst();
-                    const Player* otherPlayer = playerConfig->GetPlayer();
-                    if (player && otherPlayer)
-                    {
-                        const uint32 playerLevel = player->GetLevel();
-                        const uint32 otherPlayerLevel = otherPlayer->GetLevel();
-                        return playerLevel - 1 <= otherPlayerLevel && 
-                               playerLevel + 1 >= otherPlayerLevel &&
-                               HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
-                    }
-                }
+#ifdef ENABLE_PLAYERBOTS
+            // Bots can always use mailbox
+            if (!player->isRealPlayer())
+                return true;
+#endif
 
+            if (moduleConfig->playerConfig && playerConfig)
+            {
+                return !playerConfig->IsSelfFound();
+            }
+            else
+            {
                 return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool CanTrade(const Player* player, const Player* otherPlayer, const HardcoreModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig)
+    {
+        if (moduleConfig && moduleConfig->enabled && moduleConfig->selfFound)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            // Bots can always trade between them
+            if (!player->isRealPlayer() && !otherPlayer->isRealPlayer())
+                return true;
+#endif
+
+            if (moduleConfig->playerConfig) 
+            {
+                if (playerConfig && otherPlayerConfig) 
+                {
+                    const uint32 playerLevel = player->GetLevel();
+                    const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+                    return playerLevel - 1 <= otherPlayerLevel && 
+                           playerLevel + 1 >= otherPlayerLevel &&
+                           HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                }
+                else if ((playerConfig && !otherPlayerConfig) || (!playerConfig && otherPlayerConfig))
+                {
+                    const HardcorePlayerConfig* config = playerConfig ? playerConfig : otherPlayerConfig;
+                    return !config->IsReviveDisabled() && !config->IsSelfFound();
+                }
+            }
+            else 
+            {
+                const uint32 playerLevel = player->GetLevel();
+                const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+                return playerLevel - 1 <= otherPlayerLevel && 
+                       playerLevel + 1 >= otherPlayerLevel;
             }
         }
 
@@ -2133,6 +2181,7 @@ namespace cmangos_module
             }
             else
             {
+                bool isValidPlayer = true;
 #ifdef ENABLE_PLAYERBOTS
                 // No player config for bots
                 const ObjectGuid playerGUID = ObjectGuid(HIGHGUID_PLAYER, playerId);
@@ -2140,13 +2189,20 @@ namespace cmangos_module
                 {
                     if (sRandomPlayerbotMgr.IsFreeBot(playerId) || !player->isRealPlayer())
                     {
-                        return nullptr;
+                        isValidPlayer = false;
                     }
+                }
+                else 
+                {
+                    isValidPlayer = false;
                 }
 #endif
 
-                m_playerManagers.insert(std::make_pair(playerId, HardcorePlayerConfig::Load(playerId)));
-                playerManager = &m_playerManagers.find(playerId)->second;
+                if (isValidPlayer)
+                {
+                    m_playerManagers.insert(std::make_pair(playerId, HardcorePlayerConfig::Load(playerId)));
+                    playerManager = &m_playerManagers.find(playerId)->second;
+                }
             }
         }
 
@@ -2353,7 +2409,7 @@ namespace cmangos_module
         const HardcoreModuleConfig* moduleConfig = GetConfig();
         if (moduleConfig->enabled)
         {
-            if (!CanInviteToGroup(moduleConfig, GetPlayerConfig(player), GetPlayerConfig(recipient)))
+            if (!CanInviteToGroup(player, recipient, moduleConfig, GetPlayerConfig(player), GetPlayerConfig(recipient)))
             {
                 std::ostringstream notification;
                 notification << "You can't invite other players that are not doing the same challenges as you";
@@ -2386,31 +2442,73 @@ namespace cmangos_module
                 if (PlayerMenu* playerMenu = player->GetPlayerMenu())
                 {
                     playerMenu->ClearMenus();
-                    if (moduleConfig->playerConfig)
+
+                    const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player);
+                    if (playerConfig && 
+                       (moduleConfig->reviveDisabled ||
+                        moduleConfig->IsDropLootEnabled() ||
+                        moduleConfig->levelDownPct > 0.0f ||
+                        moduleConfig->disablePVP ||
+                        moduleConfig->selfFound))
                     {
                         if (moduleConfig->reviveDisabled)
                         {
-                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
-                        }
-
-                        if (moduleConfig->IsDropLootEnabled())
-                        {
-                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
-                        }
-
-                        if (moduleConfig->levelDownPct > 0.0f)
-                        {
-                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
-                        }
-
-                        if (moduleConfig->disablePVP)
-                        {
-                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                            if (playerConfig->IsReviveDisabled())
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE, "", 0);
+                            }
+                            else 
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
+                            }
                         }
 
                         if (moduleConfig->selfFound)
                         {
-                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
+                            if (playerConfig->IsSelfFound())
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE, "", 0);
+                            }
+                            else
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
+                            }
+                        }
+
+                        if (moduleConfig->IsDropLootEnabled())
+                        {
+                            if (playerConfig->ShouldDropLootOnDeath()) 
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE, "", 0);
+                            }
+                            else
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
+                            }
+                        }
+
+                        if (moduleConfig->levelDownPct > 0.0f)
+                        {
+                            if (playerConfig->ShouldLoseXPOnDeath())
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE, "", 0);
+                            }
+                            else
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
+                            }
+                        }
+
+                        if (moduleConfig->disablePVP)
+                        {
+                            if (playerConfig->IsPVPDisabled())
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ENABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ENABLE_PVP, "", 0);
+                            }
+                            else 
+                            {
+                                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                            }
                         }
 
                         playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN, creature->GetObjectGuid());
@@ -2425,7 +2523,7 @@ namespace cmangos_module
             }
             else if (creature->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER))
             {
-                if (!CanUseAuctionHouse(moduleConfig, GetPlayerConfig(player)))
+                if (!CanUseAuctionHouse(player, moduleConfig, GetPlayerConfig(player)))
                 {
                     std::ostringstream notification;
                     notification << "You can't use the auction house while doing the self found challenge";
@@ -2463,12 +2561,30 @@ namespace cmangos_module
                         return true;
                     }
 
+                    case HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE_CONFIRM, creature->GetObjectGuid());
+                        return true;
+                    }
+
                     case HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE:
                     {
                         playerMenu->ClearMenus();
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
                         playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DROP_LOOT_CHALLENGE, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE_CONFIRM, creature->GetObjectGuid());
                         return true;
                     }
 
@@ -2481,12 +2597,30 @@ namespace cmangos_module
                         return true;
                     }
 
+                    case HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE_CONFIRM, creature->GetObjectGuid());
+                        return true;
+                    }
+
                     case HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE:
                     {
                         playerMenu->ClearMenus();
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
                         playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_SELF_FOUND_CHALLENGE, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE_CONFIRM, creature->GetObjectGuid());
                         return true;
                     }
 
@@ -2512,6 +2646,19 @@ namespace cmangos_module
                                     playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
                                 }
                             }
+                        }
+                        
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            playerConfig->ToggleReviveDisabled(false);
+                            playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE, creature->GetObjectGuid());
                         }
                         
                         return true;
@@ -2544,6 +2691,19 @@ namespace cmangos_module
                         return true;
                     }
 
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            playerConfig->ToggleDropLootOnDeath(false);
+                            playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE, creature->GetObjectGuid());
+                        }
+                        
+                        return true;
+                    }
+
                     case HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE:
                     {
                         playerMenu->ClearMenus();
@@ -2568,6 +2728,19 @@ namespace cmangos_module
                             }
                         }
 
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            playerConfig->ToggleLoseXPOnDeath(false);
+                            playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE, creature->GetObjectGuid());
+                        }
+                        
                         return true;
                     }
 
@@ -2598,6 +2771,19 @@ namespace cmangos_module
                         return true;
                     }
 
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE:
+                    {
+                        playerMenu->ClearMenus();
+
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            playerConfig->ToggleSelfFound(false);
+                            playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE, creature->GetObjectGuid());
+                        }
+                        
+                        return true;
+                    }
+
                     case HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE:
                     {
                         OnPreGossipHello(player, creature);
@@ -2608,8 +2794,17 @@ namespace cmangos_module
                     {
                         playerMenu->ClearMenus();
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE + HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
                         playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DISABLE_PVP, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_ENABLE_PVP:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_ENABLE_PVP, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ENABLE_PVP, creature->GetObjectGuid());
                         return true;
                     }
 
@@ -2625,7 +2820,7 @@ namespace cmangos_module
                         return true;
                     }
 
-                    case HARDCORE_DIALOGUE_OPTION_DECLINE + HARDCORE_DIALOGUE_OPTION_DISABLE_PVP:
+                    case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_ENABLE_PVP:
                     {
                         playerMenu->ClearMenus();
                         if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
@@ -2633,7 +2828,7 @@ namespace cmangos_module
                             playerConfig->TogglePVPDisabled(false);
                         }
 
-                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DISABLE_PVP_CONFIRM, creature->GetObjectGuid());
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ENABLE_PVP_CONFIRM, creature->GetObjectGuid());
                         return true;
                     }
 
@@ -3071,7 +3266,7 @@ namespace cmangos_module
         const HardcoreModuleConfig* moduleConfig = GetConfig();
         if (moduleConfig->enabled && moduleConfig->selfFound)
         {
-            if (!CanTrade(moduleConfig, GetPlayerConfig(player), GetPlayerConfig(trader)))
+            if (!CanTrade(player, trader, moduleConfig, GetPlayerConfig(player), GetPlayerConfig(trader)))
             {
                 std::ostringstream notification;
                 notification << "You can't trade with other players that are not doing the same challenges as you";
@@ -3125,7 +3320,7 @@ namespace cmangos_module
         const HardcoreModuleConfig* moduleConfig = GetConfig();
         if (moduleConfig->enabled && moduleConfig->selfFound)
         {
-            if (!CanUseMailBox(moduleConfig, GetPlayerConfig(player)))
+            if (!CanUseMailBox(player, moduleConfig, GetPlayerConfig(player)))
             {
                 std::ostringstream notification;
                 notification << "You can't use the mailbox during the self found challenge";
