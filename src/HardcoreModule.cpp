@@ -330,7 +330,7 @@ namespace cmangos_module
                     const uint32 otherPlayerLevel = otherPlayer->GetLevel();
                     return playerLevel - 1 <= otherPlayerLevel && 
                            playerLevel + 1 >= otherPlayerLevel &&
-                           HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                           playerConfig->IsSelfFound() == otherPlayerConfig->IsSelfFound();
                 }
                 else if ((playerConfig && !otherPlayerConfig) || (!playerConfig && otherPlayerConfig))
                 {
