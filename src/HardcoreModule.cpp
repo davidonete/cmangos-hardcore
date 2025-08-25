@@ -322,12 +322,13 @@ namespace cmangos_module
                 return true;
 #endif
 
+            const uint32 playerLevel = player->GetLevel();
+            const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+
             if (moduleConfig->playerConfig) 
             {
                 if (playerConfig && otherPlayerConfig) 
                 {
-                    const uint32 playerLevel = player->GetLevel();
-                    const uint32 otherPlayerLevel = otherPlayer->GetLevel();
                     return playerLevel - 1 <= otherPlayerLevel && 
                            playerLevel + 1 >= otherPlayerLevel &&
                            playerConfig->IsSelfFound() == otherPlayerConfig->IsSelfFound();
@@ -335,13 +336,13 @@ namespace cmangos_module
                 else if ((playerConfig && !otherPlayerConfig) || (!playerConfig && otherPlayerConfig))
                 {
                     const HardcorePlayerConfig* config = playerConfig ? playerConfig : otherPlayerConfig;
-                    return !config->IsReviveDisabled() && !config->IsSelfFound();
+                    return playerLevel - 1 <= otherPlayerLevel && 
+                           playerLevel + 1 >= otherPlayerLevel && 
+                           !config->IsSelfFound();
                 }
             }
             else 
             {
-                const uint32 playerLevel = player->GetLevel();
-                const uint32 otherPlayerLevel = otherPlayer->GetLevel();
                 return playerLevel - 1 <= otherPlayerLevel && 
                        playerLevel + 1 >= otherPlayerLevel;
             }
@@ -406,26 +407,27 @@ namespace cmangos_module
                 return true;
 #endif
 
+            const uint32 playerLevel = player->GetLevel();
+            const uint32 otherPlayerLevel = otherPlayer->GetLevel();
+
             if (moduleConfig->playerConfig) 
             {
                 if (playerConfig && otherPlayerConfig) 
                 {
-                    const uint32 playerLevel = player->GetLevel();
-                    const uint32 otherPlayerLevel = otherPlayer->GetLevel();
                     return playerLevel - 1 <= otherPlayerLevel && 
                            playerLevel + 1 >= otherPlayerLevel &&
-                           HardcorePlayerConfig::HasSameChallenges(playerConfig, otherPlayerConfig);
+                           playerConfig->IsSelfFound() == otherPlayerConfig->IsSelfFound();
                 }
                 else if ((playerConfig && !otherPlayerConfig) || (!playerConfig && otherPlayerConfig))
                 {
                     const HardcorePlayerConfig* config = playerConfig ? playerConfig : otherPlayerConfig;
-                    return !config->IsReviveDisabled() && !config->IsSelfFound();
+                    return playerLevel - 1 <= otherPlayerLevel && 
+                           playerLevel + 1 >= otherPlayerLevel && 
+                           !config->IsSelfFound();
                 }
             }
             else 
             {
-                const uint32 playerLevel = player->GetLevel();
-                const uint32 otherPlayerLevel = otherPlayer->GetLevel();
                 return playerLevel - 1 <= otherPlayerLevel && 
                        playerLevel + 1 >= otherPlayerLevel;
             }
