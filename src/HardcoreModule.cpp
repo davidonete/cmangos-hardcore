@@ -329,16 +329,15 @@ namespace cmangos_module
             {
                 if (playerConfig && otherPlayerConfig) 
                 {
-                    return playerLevel - 1 <= otherPlayerLevel && 
-                           playerLevel + 1 >= otherPlayerLevel &&
-                           playerConfig->IsSelfFound() == otherPlayerConfig->IsSelfFound();
+                    if (playerConfig->IsSelfFound() && (playerConfig->IsSelfFound() == otherPlayerConfig->IsSelfFound()))
+                    {
+                        return playerLevel - 1 <= otherPlayerLevel && playerLevel + 1 >= otherPlayerLevel;
+                    }
                 }
                 else if ((playerConfig && !otherPlayerConfig) || (!playerConfig && otherPlayerConfig))
                 {
                     const HardcorePlayerConfig* config = playerConfig ? playerConfig : otherPlayerConfig;
-                    return playerLevel - 1 <= otherPlayerLevel && 
-                           playerLevel + 1 >= otherPlayerLevel && 
-                           !config->IsSelfFound();
+                    return !config->IsSelfFound();
                 }
             }
             else 
@@ -412,18 +411,17 @@ namespace cmangos_module
 
             if (moduleConfig->playerConfig) 
             {
-                if (playerConfig && otherPlayerConfig) 
+                if (playerConfig && otherPlayerConfig)
                 {
-                    return playerLevel - 1 <= otherPlayerLevel && 
-                           playerLevel + 1 >= otherPlayerLevel &&
-                           playerConfig->IsSelfFound() == otherPlayerConfig->IsSelfFound();
+                    if (playerConfig->IsSelfFound() && (playerConfig->IsSelfFound() == otherPlayerConfig->IsSelfFound()))
+                    {
+                        return playerLevel - 1 <= otherPlayerLevel && playerLevel + 1 >= otherPlayerLevel;
+                    }
                 }
                 else if ((playerConfig && !otherPlayerConfig) || (!playerConfig && otherPlayerConfig))
                 {
                     const HardcorePlayerConfig* config = playerConfig ? playerConfig : otherPlayerConfig;
-                    return playerLevel - 1 <= otherPlayerLevel && 
-                           playerLevel + 1 >= otherPlayerLevel && 
-                           !config->IsSelfFound();
+                    return !config->IsSelfFound();
                 }
             }
             else 
@@ -3054,7 +3052,7 @@ namespace cmangos_module
         {
             if (!args.empty())
             {
-                const bool enable = args == "1" || args == "true" ? false : false;
+                const bool enable = args == "1" || args == "true" ? true : false;
 
                 // Get the selected player or self
                 const Player* target = player;
