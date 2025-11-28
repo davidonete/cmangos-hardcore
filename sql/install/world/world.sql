@@ -20,7 +20,7 @@ INSERT INTO `creature` (`id`, `map`, `spawnMask`, `position_x`, `position_y`, `p
 INSERT INTO `creature` (`id`, `map`, `spawnMask`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecsmin`, `spawntimesecsmax`, `spawndist`, `MovementType`) VALUES (@Entry, 1, 1, -2882.11000000000000000000, -277.04500000000000000000, 53.91540000000000000000, 2.37644000000000000000, 25, 25, 0, 0);
 
 SET @TEXT_ID := 50900;
-DELETE FROM `npc_text` WHERE `ID` BETWEEN @TEXT_ID AND @TEXT_ID+14;
+DELETE FROM `npc_text` WHERE `ID` BETWEEN @TEXT_ID AND @TEXT_ID+16;
 INSERT INTO `npc_text` (`ID`, `text0_0`) VALUES
 (@TEXT_ID,    "Ahoy, $N. If you are looking for a challenge you have come to the right place. Tell me, what challenge are you interested in?"),
 (@TEXT_ID+1,  "Appologies $N. I can't provide you with any challenges at the moment."),
@@ -36,7 +36,9 @@ INSERT INTO `npc_text` (`ID`, `text0_0`) VALUES
 (@TEXT_ID+11, "Are you sure? You won't be able to retake the challenge if you drop it now."),
 (@TEXT_ID+12, "Oh! That is such a relieve! I was wondering how long were you going to keep joking around..."),
 (@TEXT_ID+13, "All done! Enemies will be able to attack you now."),
-(@TEXT_ID+14, "All done! You are no longer doing the challenge.");
+(@TEXT_ID+14, "All done! You are no longer doing the challenge."),
+(@TEXT_ID+15, "Which XP rate would you like to have?"),
+(@TEXT_ID+16, "All done! You xp rate has been changed.");
 
 DELETE FROM `locales_npc_text` WHERE `entry` BETWEEN @TEXT_ID AND @TEXT_ID+14;
 INSERT INTO `locales_npc_text` (`entry`, `text0_0_loc6`) VALUES
@@ -54,10 +56,12 @@ INSERT INTO `locales_npc_text` (`entry`, `text0_0_loc6`) VALUES
 (@TEXT_ID+11, "¿Estas seguro? No podras retomar el desafío si lo terminas ahora."),
 (@TEXT_ID+12, "Ah! Que alivio! Ya estaba pensando que de verdad ibas en serio..."),
 (@TEXT_ID+13, "¡Listo! Los enemigos podrán combatir contigo ahora."),
-(@TEXT_ID+14, "¡Listo! Ya no estas realizando el desafío.");
+(@TEXT_ID+14, "¡Listo! Ya no estas realizando el desafío."),
+(@TEXT_ID+15, "¿Que ratio de XP te gustaria tener?"),
+(@TEXT_ID+16, "¡Listo! He cambiado tu ratio de XP");
 
 SET @STRING_ENTRY := 12200;
-DELETE FROM `mangos_string` WHERE `entry` BETWEEN @STRING_ENTRY AND @STRING_ENTRY+13;
+DELETE FROM `mangos_string` WHERE `entry` BETWEEN @STRING_ENTRY AND @STRING_ENTRY+14;
 INSERT INTO `mangos_string` (`entry`, `content_default`, `content_loc6`) VALUES 
 (@STRING_ENTRY,    "I'm interested in the hardcore challenge", "Estoy interesado en el desafío hardcore"),
 (@STRING_ENTRY+1,  "I would like to stop doing the hardcore challenge", "Me gustaria terminar el desafío hardcore"),
@@ -67,12 +71,13 @@ INSERT INTO `mangos_string` (`entry`, `content_default`, `content_loc6`) VALUES
 (@STRING_ENTRY+5,  "I would like to stop doing the lose experience challenge", 'Me gustaria terminar el desafío de perder experiencia'),
 (@STRING_ENTRY+6,  "I'm interested in the self found challenge", 'Estoy interesado en el desafío del lobo solitario'),
 (@STRING_ENTRY+7,  "I would like to stop doing the self found challenge", 'Me gustaria terminar el desafío del lobo solitario'),
-(@STRING_ENTRY+8,  "I accept the challenge!", '¡Acepto el desafío!'),
-(@STRING_ENTRY+9,  "Maybe later...", 'Quizas mas tarde...'),
-(@STRING_ENTRY+10, "I would like to disable pvp fights", 'Me gustaria desactivar el combate pvp'),
-(@STRING_ENTRY+11, "I would like to enable pvp fights", 'Me gustaria activat el combate pvp'),
-(@STRING_ENTRY+12, "Yes, please!", '¡Si, por favor!'),
-(@STRING_ENTRY+13, "Maybe not...", 'Quizas no...');
+(@STRING_ENTRY+8,  "I would like to change my xp rate", 'Me gustaria cambiar el ratio de XP'),
+(@STRING_ENTRY+9,  "I accept the challenge!", '¡Acepto el desafío!'),
+(@STRING_ENTRY+10,  "Maybe later...", 'Quizas mas tarde...'),
+(@STRING_ENTRY+11, "I would like to disable pvp fights", 'Me gustaria desactivar el combate pvp'),
+(@STRING_ENTRY+12, "I would like to enable pvp fights", 'Me gustaria activat el combate pvp'),
+(@STRING_ENTRY+13, "Yes, please!", '¡Si, por favor!'),
+(@STRING_ENTRY+14, "Maybe not...", 'Quizas no...');
 
 SET @START_SPELL_ID := 33500;
 SET @END_SPELL_ID := @START_SPELL_ID+1;

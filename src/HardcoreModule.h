@@ -167,12 +167,14 @@ namespace cmangos_module
         bool ShouldLoseXPOnDeath() const { return m_loseXPOnDeath; }
         bool IsPVPDisabled() const { return m_pvpDisabled; }
         bool IsSelfFound() const { return m_selfFound; }
+        float GetXPRate() const { return m_xpRate / 100.0f; }
 
         void ToggleReviveDisabled(bool enable);
         void ToggleDropLootOnDeath(bool enable);
         void ToggleLoseXPOnDeath(bool enable);
         void TogglePVPDisabled(bool enable);
         void ToggleSelfFound(bool enable);
+        void SetXPRate(float rate);
 
         static bool HasSameChallenges(const HardcorePlayerConfig* playerConfig, const HardcorePlayerConfig* otherPlayerConfig);
 
@@ -190,6 +192,7 @@ namespace cmangos_module
         bool m_loseXPOnDeath;
         bool m_pvpDisabled;
         bool m_selfFound;
+        uint32 m_xpRate;
     };
 
     class HardcorePlayerDeathLogEntry
@@ -265,6 +268,7 @@ namespace cmangos_module
         void OnReleaseSpirit(Player* player, const WorldSafeLocsEntry* closestGrave) override;
         void OnStoreItem(Player* player, Loot* loot, Item* item) override;
         bool OnPreHandleInitializeTrade(Player* player, Player* trader) override;
+        bool OnPreGiveXP(Player* player, uint32& xp, Creature* victim) override;
 
         // Unit hooks
         bool OnGetReactionTo(const Unit* unit, const Unit* target, ReputationRank& outReaction) override;
@@ -300,6 +304,7 @@ namespace cmangos_module
         bool HandleTogglePVPCommand(WorldSession* session, const std::string& args);
         bool HandleToggleSelfFoundCommand(WorldSession* session, const std::string& args);
         bool HandleDeathlogCommand(WorldSession* session, const std::string& args);
+        bool HandleXPRateCommand(WorldSession* session, const std::string& args);
 
         HardcorePlayerConfig* GetPlayerConfig(uint32 playerId);
         HardcorePlayerConfig* GetPlayerConfig(const Player* player);

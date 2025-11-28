@@ -133,6 +133,10 @@
 #       If the player is allowed to interact with others (mail/auction house/group/trade)
 #       Default: 0
 #
+#   Hardcore.CustomXPRates
+#       If the player is allowed to customize his XP rates
+#       Default: 0
+#
 #   COMMANDS
 #	.hardcore reset
 #		Resets the state of the hardcore mod (loot and graves). Recommended to delete WDB folder and server reset after this
@@ -160,6 +164,9 @@
 #
 #	.hardcore deathlog <account/player_name> <amount>
 #		Shows the most recent deaths of players that died during the hardcore challenge
+#
+#	.hardcore xp <amount>
+#		Sets the xp rate of the selected character
 #
 ###################################################################################################################
 
@@ -193,3 +200,4 @@ Hardcore.DropMinLevel = 1
 #Hardcore.DropMaxLevel = 60
 Hardcore.DisablePVP = 0
 Hardcore.SelfFound = 0
+Hardcore.CustomXPRates = 0

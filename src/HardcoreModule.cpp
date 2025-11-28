@@ -1415,7 +1415,7 @@ namespace cmangos_module
         HardcorePlayerConfig playerConfig(playerId);
         if (playerId > 0)
         {
-            auto result = CharacterDatabase.PQuery("SELECT revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled, self_found FROM custom_hardcore_player_config WHERE id = '%d'", playerId);
+            auto result = CharacterDatabase.PQuery("SELECT revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled, self_found, xp_rate FROM custom_hardcore_player_config WHERE id = '%d'", playerId);
             if (result)
             {
                 Field* fields = result->Fetch();
@@ -1424,6 +1424,7 @@ namespace cmangos_module
                 playerConfig.m_loseXPOnDeath = fields[2].GetBool();
                 playerConfig.m_pvpDisabled = fields[3].GetBool();
                 playerConfig.m_selfFound = fields[4].GetBool();
+                playerConfig.m_xpRate = fields[5].GetUInt8();
             }
             else
             {
@@ -1431,14 +1432,16 @@ namespace cmangos_module
                 playerConfig.m_dropLootOnDeath = false;
                 playerConfig.m_loseXPOnDeath = false;
                 playerConfig.m_pvpDisabled = false;
+                playerConfig.m_xpRate = 100;
 
-                CharacterDatabase.PExecute("INSERT INTO custom_hardcore_player_config (id, revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled, self_found) VALUES ('%d', '%d', '%d', '%d', '%d', '%d')",
+                CharacterDatabase.PExecute("INSERT INTO custom_hardcore_player_config (id, revive_disabled, drop_loot_on_death, lose_xp_on_death, pvp_disabled, self_found, xp_rate) VALUES ('%d', '%d', '%d', '%d', '%d', '%d', '%d')",
                     playerId,
                     playerConfig.m_reviveDisabled ? 1 : 0,
                     playerConfig.m_dropLootOnDeath ? 1 : 0,
                     playerConfig.m_loseXPOnDeath ? 1 : 0,
                     playerConfig.m_pvpDisabled ? 1 : 0,
-                    playerConfig.m_selfFound ? 1 : 0);
+                    playerConfig.m_selfFound ? 1 : 0,
+                    playerConfig.m_xpRate);
             }
         }
 
@@ -1482,6 +1485,14 @@ namespace cmangos_module
         CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET self_found = '%d' WHERE id = '%d'", m_selfFound ? 1 : 0, m_playerId);
     
         ToggleAura(enable, HARDCORE_SPELL_SELF_FOUND_CHALLENGE);
+    }
+
+    void HardcorePlayerConfig::SetXPRate(float rate)
+    {
+        rate = rate > 5.0f ? 5.0f : rate;
+        rate = rate < 0.1f ? 0.1f : rate;
+        m_xpRate = static_cast<uint32>(rate * 100.0f);
+        CharacterDatabase.PExecute("UPDATE custom_hardcore_player_config SET xp_rate = '%d' WHERE id = '%d'", m_xpRate, m_playerId);
     }
 
     Player* HardcorePlayerConfig::GetPlayer() const
@@ -2511,6 +2522,11 @@ namespace cmangos_module
                             }
                         }
 
+                        if (moduleConfig->customXPRates)
+                        {
+                            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE, "", 0);
+                        }
+
                         playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_MAIN, creature->GetObjectGuid());
                     }
                     else
@@ -2832,6 +2848,44 @@ namespace cmangos_module
                         return true;
                     }
 
+
+                    case HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE:
+                    {
+                        playerMenu->ClearMenus();
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, "x0.5", GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 50, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, "x1.0", GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 100, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, "x2.5", GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 250, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, "x5.0", GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 500, "", 0);
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CHANGE_XP_RATE, creature->GetObjectGuid());
+                        return true;
+                    }
+
+                    case HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 50:
+                    case HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 100:
+                    case HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 250:
+                    case HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 500:
+                    {
+                        float xpRateSelected = 0.0f;
+                        switch (action)
+                        {
+                            case HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 50:  xpRateSelected = 0.5f; break;
+                            case HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 100: xpRateSelected = 1.0f; break;
+                            case HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 250: xpRateSelected = 2.5f; break;
+                            case HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE + 500: xpRateSelected = 5.0f; break;
+                            default: break;
+                        }
+
+                        playerMenu->ClearMenus();
+                        if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                        {
+                            playerConfig->SetXPRate(xpRateSelected);
+                        }
+
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CHANGE_XP_RATE_CONFIRM, creature->GetObjectGuid());
+                        return true;
+                    }
+
                     default: break;
                 }
             }
@@ -2855,7 +2909,8 @@ namespace cmangos_module
             { "losexp", std::bind(&HardcoreModule::HandleToggleLoseXPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "pvp", std::bind(&HardcoreModule::HandleTogglePVPCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
             { "selffound", std::bind(&HardcoreModule::HandleToggleSelfFoundCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
-            { "deathlog", std::bind(&HardcoreModule::HandleDeathlogCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_PLAYER }
+            { "deathlog", std::bind(&HardcoreModule::HandleDeathlogCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_PLAYER },
+            { "xp", std::bind(&HardcoreModule::HandleXPRateCommand, this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER }
         };
 
         return &commandTable;
@@ -3120,7 +3175,7 @@ namespace cmangos_module
     bool HardcoreModule::HandleDeathlogCommand(WorldSession* session, const std::string& args)
     {
         const Player* player = session ? session->GetPlayer() : nullptr;
-        if (player)
+        if (player && GetConfig()->enabled)
         {
             int amount = 5;
             HardcoreDeathFilter filter = HARDCORE_DEATH_FILTER_WORLD;
@@ -3195,6 +3250,45 @@ namespace cmangos_module
             }
 
             return true;
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::HandleXPRateCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player)
+        {
+            if (!args.empty())
+            {
+                if (helper::IsValidNumberString(args))
+                {
+                    const float xpRate = std::stof(args);
+
+                    // Get the selected player or self
+                    const Player* target = player;
+                    const ObjectGuid& guid = player->GetSelectionGuid();
+                    if (guid)
+                    {
+                        target = sObjectMgr.GetPlayer(guid);
+                    }
+
+                    if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+                    {
+                        playerConfig->SetXPRate(xpRate);
+
+                        std::ostringstream notification;
+                        notification << "XP Rate has been set to x" << playerConfig->GetXPRate() << " for the player " << target->GetName();
+
+                        WorldPacket data;
+                        ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                        player->SendDirectMessage(data);
+
+                        return true;
+                    }
+                }
+            }
         }
 
         return false;
@@ -3275,6 +3369,20 @@ namespace cmangos_module
                 ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
                 player->SendDirectMessage(data);
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool HardcoreModule::OnPreGiveXP(Player* player, uint32& xp, Creature* victim)
+    {
+        const HardcoreModuleConfig* moduleConfig = GetConfig();
+        if (moduleConfig->enabled && moduleConfig->customXPRates)
+        {
+            if (const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+            {
+                xp *= playerConfig->GetXPRate();
             }
         }
 
